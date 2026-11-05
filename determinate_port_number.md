@@ -1,6 +1,6 @@
-# 🔌 Determining Service Port Numbers
+# Determining Service Port Numbers
 
-[⬅ Back to the study notes](README.md#services)
+[Back to the study notes](README.md#services)
 
 To write a Service you need to answer **three questions**, based on where the traffic is **coming from** and where it is **going**:
 
@@ -21,7 +21,7 @@ To write a Service you need to answer **three questions**, based on where the tr
 
 ---
 
-## 1️⃣ `targetPort` — the container's application port
+## 1. `targetPort` — the container's application port
 
 **What it is:** the actual port the application process inside the container is bound to.
 
@@ -42,7 +42,7 @@ To write a Service you need to answer **three questions**, based on where the tr
 
 ---
 
-## 2️⃣ `port` — the Service's internal virtual port
+## 2. `port` — the Service's internal virtual port
 
 **What it is:** the port that other pods inside the cluster use to reach the Service through its ClusterIP or DNS name (`my-service:port`).
 
@@ -56,7 +56,7 @@ To write a Service you need to answer **three questions**, based on where the tr
 
 ---
 
-## 3️⃣ `nodePort` — the node's external entry port
+## 3. `nodePort` — the node's external entry port
 
 **What it is:** a dedicated port opened on the network interface of **every node** in the cluster, so users outside the cluster can reach the workload at `<Node-IP>:<nodePort>`.
 
@@ -70,7 +70,7 @@ To write a Service you need to answer **three questions**, based on where the tr
 
 ---
 
-## 🎯 Port Decision Matrix for the Exam
+## Port Decision Matrix for the Exam
 
 | Scenario | Service Type | `port` | `targetPort` | `nodePort` |
 | :--- | :--- | :--- | :--- | :--- |
@@ -80,7 +80,7 @@ To write a Service you need to answer **three questions**, based on where the tr
 
 ---
 
-## 🧩 Putting it together
+## Putting it together
 
 ```yaml
 apiVersion: v1

@@ -1,6 +1,4 @@
-<a id="top"></a>
-
-# ☸️ Kubernetes Study Notes
+# Kubernetes Study Notes
 
 Commands, manifests and exam tips collected while studying Kubernetes administration.
 
@@ -11,27 +9,7 @@ Commands, manifests and exam tips collected while studying Kubernetes administra
 > alias k=kubectl
 > ```
 
-📌 **Related notes:** [Determining Service port numbers](determinate_port_number.md)
-
-## 📚 Table of Contents
-
-| | Part | Topics |
-| :---: | :--- | :--- |
-| 🧱 | [1. Core Concepts](#1-core-concepts) | [ReplicaSet](#replicaset) · [Deployment](#deployment) · [Generate YAML Templates](#generate-yaml-templates) · [Services](#services) · [Namespaces](#namespaces) · [Exam Tips](#exam-tips) |
-| 🗓️ | [2. Scheduling](#2-scheduling) | [Manual Scheduling](#manual-scheduling) · [Labels and Selectors](#labels-and-selectors) · [Taints and Tolerations](#taints-and-tolerations) · [Node Selector](#node-selector) · [Node Affinity](#node-affinity) · [Resource Requests and Limits](#resource-requests-and-limits) · [LimitRange](#limitrange) · [ResourceQuota](#resourcequota) · [DaemonSet](#daemonset) · [Static Pods](#static-pods) · [Priority Classes](#priority-classes) · [Multiple Schedulers](#multiple-schedulers) |
-| 📈 | [3. Logging and Monitoring](#3-logging-and-monitoring) | [Monitoring](#monitoring) · [Application Logs](#application-logs) |
-| 🔄 | [4. Application Lifecycle](#4-application-lifecycle) | [Rollouts and Rollbacks](#rollouts-and-rollbacks) · [Commands and Arguments](#commands-and-arguments) · [Environment Variables](#environment-variables) · [ConfigMaps](#configmaps) · [Secrets](#secrets) · [Multi-Container Pods](#multi-container-pods) · [Autoscaling](#autoscaling) · [Horizontal Pod Autoscaler](#horizontal-pod-autoscaler) · [In-Place Pod Resizing](#in-place-pod-resizing) · [Vertical Pod Autoscaler](#vertical-pod-autoscaler) |
-| 🛠️ | [5. Cluster Maintenance](#5-cluster-maintenance) | [OS Upgrades](#os-upgrades) · [Kubernetes Releases](#kubernetes-releases) · [Backup and Restore](#backup-and-restore) |
-| 🔐 | [6. Security](#6-security) | [Authentication](#authentication) · [TLS in Kubernetes](#tls-in-kubernetes) · [Certificate Signing Requests](#certificate-signing-requests) · [Kubeconfig](#kubeconfig) · [API Groups](#api-groups) · [Authorization](#authorization) · [Role-Based Access Control](#role-based-access-control) · [Cluster Roles](#cluster-roles) · [Service Accounts](#service-accounts) · [Image Security](#image-security) · [Network Policies](#network-policies) |
-| 🧩 | [7. Extending Kubernetes](#7-extending-kubernetes) | [Custom Resource Definitions](#custom-resource-definitions) · [Operator Framework](#operator-framework) |
-| 💾 | [8. Storage](#8-storage) | [Docker Storage](#docker-storage) · [Docker Volume Drivers](#docker-volume-drivers) · [Container Storage Interface](#container-storage-interface) · [Volumes](#volumes) · [Persistent Volumes](#persistent-volumes) · [Persistent Volume Claims](#persistent-volume-claims) · [Storage Classes](#storage-classes) |
-| 🌐 | [9. Networking](#9-networking) | [Networking Prerequisites](#networking-prerequisites) · [Pod Networking](#pod-networking) · [CNI in Kubernetes](#cni-in-kubernetes) · [IP Address Management](#ip-address-management) · [Service Networking](#service-networking) · [CoreDNS in Kubernetes](#coredns-in-kubernetes) · [Ingress](#ingress) · [Gateway API](#gateway-api) |
-| 🏗️ | [10. Cluster Installation](#10-cluster-installation) | [Kubeadm](#kubeadm) |
-| ⎈ | [11. Helm](#11-helm) | [Helm Basics](#helm-basics) · [Helm Charts](#helm-charts) · [Customizing Chart Parameters](#customizing-chart-parameters) · [Helm Releases](#helm-releases) |
-| 🧬 | [12. Kustomize](#12-kustomize) | [Kustomization File](#kustomization-file) · [Patches](#patches) · [Patching Dictionaries](#patching-dictionaries) · [Patching Lists](#patching-lists) · [Overlays](#overlays) · [Components](#components) |
-| 🩺 | [13. Troubleshooting](#13-troubleshooting) | [Cluster Components](#cluster-components) · [Inspecting Multi-Container Pods](#inspecting-multi-container-pods) |
-
----
+**Related notes:** [Determining Service port numbers](determinate_port_number.md)
 
 ## 1. Core Concepts
 
@@ -118,7 +96,7 @@ kubectl create -f nginx-deployment.yaml
 
 ### Services
 
-> 📌 Not sure which port goes where? See [Determining Service port numbers](determinate_port_number.md).
+> Not sure which port goes where? See [Determining Service port numbers](determinate_port_number.md).
 
 | Type | Reachable from |
 | :--- | :--- |
@@ -274,8 +252,6 @@ k explain pods.spec
 k explain pods --recursive
 kubectl run custom-nginx --image=nginx --port=8080
 ```
-
-<p align="right"><a href="#top">⬆ back to top</a></p>
 
 ---
 
@@ -701,8 +677,6 @@ See the scheduler logs:
 k logs my-custom-scheduler --namespace=kube-system
 ```
 
-<p align="right"><a href="#top">⬆ back to top</a></p>
-
 ---
 
 ## 3. Logging and Monitoring
@@ -719,8 +693,6 @@ k top pod
 ```bash
 k logs -f <podName>
 ```
-
-<p align="right"><a href="#top">⬆ back to top</a></p>
 
 ---
 
@@ -1133,7 +1105,7 @@ spec:
 
 ### In-Place Pod Resizing
 
-> 🚧 *To do.*
+> *To do.*
 
 ### Vertical Pod Autoscaler
 
@@ -1194,8 +1166,6 @@ VPA components:
 k describe vpa my-app-vpa
 ```
 
-<p align="right"><a href="#top">⬆ back to top</a></p>
-
 ---
 
 ## 5. Cluster Maintenance
@@ -1220,9 +1190,7 @@ kubeadm upgrade apply
 
 ### Backup and Restore
 
-> 🚧 *To do.*
-
-<p align="right"><a href="#top">⬆ back to top</a></p>
+> *To do.*
 
 ---
 
@@ -1761,8 +1729,6 @@ spec:
 kubectl get netpol
 ```
 
-<p align="right"><a href="#top">⬆ back to top</a></p>
-
 ---
 
 ## 7. Extending Kubernetes
@@ -1811,9 +1777,7 @@ spec:
 
 ### Operator Framework
 
-> 🚧 *To do.*
-
-<p align="right"><a href="#top">⬆ back to top</a></p>
+> *To do.*
 
 ---
 
@@ -2163,8 +2127,6 @@ provisioner: kubernetes.io/no-provisioner
 volumeBindingMode: WaitForFirstConsumer
 ```
 
-<p align="right"><a href="#top">⬆ back to top</a></p>
-
 ---
 
 ## 9. Networking
@@ -2184,9 +2146,9 @@ cat /proc/sys/net/ipv4/ip_forward                # 1 = IP forwarding enabled
 
 The Kubernetes networking model:
 
-- ✅ Every pod gets its own IP address.
-- ✅ Every pod can reach every other pod on the same node.
-- ✅ Every pod can reach every other pod on other nodes **without NAT**.
+- Every pod gets its own IP address.
+- Every pod can reach every other pod on the same node.
+- Every pod can reach every other pod on other nodes **without NAT**.
 
 Wiring a network namespace to a bridge by hand:
 
@@ -2224,7 +2186,7 @@ The **container runtime** creates the containers and calls the CNI plugin to con
 
 ### IP Address Management
 
-> 🚧 *To do.*
+> *To do.*
 
 ### Service Networking
 
@@ -2344,8 +2306,6 @@ spec:
       port: 8080
 ```
 
-<p align="right"><a href="#top">⬆ back to top</a></p>
-
 ---
 
 ## 10. Cluster Installation
@@ -2359,8 +2319,6 @@ Steps to set up a cluster with kubeadm:
 3. Initialize the master server.
 4. Set up the pod network.
 5. Join the worker nodes to the master node.
-
-<p align="right"><a href="#top">⬆ back to top</a></p>
 
 ---
 
@@ -2444,8 +2402,6 @@ helm upgrade wordpress-release bitnami/wordpress
 helm upgrade dazzling-web bitnami/nginx --version 18.3.6
 helm rollback dazzling-web
 ```
-
-<p align="right"><a href="#top">⬆ back to top</a></p>
 
 ---
 
@@ -2764,8 +2720,6 @@ k8s/
         └── kustomization.yaml
 ```
 
-<p align="right"><a href="#top">⬆ back to top</a></p>
-
 ---
 
 ## 13. Troubleshooting
@@ -2803,4 +2757,3 @@ kubectl logs mc-pod -n mc-namespace -c mc-pod-3
 k exec mc-pod -n mc-namespace -c mc-pod-2 -- cat /var/log/shared/date.log
 ```
 
-<p align="right"><a href="#top">⬆ back to top</a></p>
