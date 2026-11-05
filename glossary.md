@@ -1,0 +1,3 @@
+- **Service**: A service acts as a stable virtual IP and load balancer in front of dynamic, short-lived Pods. 
+- **Pod's Internal IP Address**: 10-244-x-x.<namespace>.pod.cluster.local
+- **service's Address**: 10-244-x-x.<namespace>.service.cluster.local

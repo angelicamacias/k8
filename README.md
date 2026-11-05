@@ -1,10 +1,43 @@
-# k8
+<a id="top"></a>
 
-## Commands
+# ☸️ Kubernetes Study Notes
 
-### Replica Set
+Commands, manifests and exam tips collected while studying Kubernetes administration.
 
-```
+> [!TIP]
+> Most commands use `k` as a short alias for `kubectl`:
+>
+> ```bash
+> alias k=kubectl
+> ```
+
+📌 **Related notes:** [Determining Service port numbers](determinate_port_number.md)
+
+## 📚 Table of Contents
+
+| | Part | Topics |
+| :---: | :--- | :--- |
+| 🧱 | [1. Core Concepts](#1-core-concepts) | [ReplicaSet](#replicaset) · [Deployment](#deployment) · [Generate YAML Templates](#generate-yaml-templates) · [Services](#services) · [Namespaces](#namespaces) · [Exam Tips](#exam-tips) |
+| 🗓️ | [2. Scheduling](#2-scheduling) | [Manual Scheduling](#manual-scheduling) · [Labels and Selectors](#labels-and-selectors) · [Taints and Tolerations](#taints-and-tolerations) · [Node Selector](#node-selector) · [Node Affinity](#node-affinity) · [Resource Requests and Limits](#resource-requests-and-limits) · [LimitRange](#limitrange) · [ResourceQuota](#resourcequota) · [DaemonSet](#daemonset) · [Static Pods](#static-pods) · [Priority Classes](#priority-classes) · [Multiple Schedulers](#multiple-schedulers) |
+| 📈 | [3. Logging and Monitoring](#3-logging-and-monitoring) | [Monitoring](#monitoring) · [Application Logs](#application-logs) |
+| 🔄 | [4. Application Lifecycle](#4-application-lifecycle) | [Rollouts and Rollbacks](#rollouts-and-rollbacks) · [Commands and Arguments](#commands-and-arguments) · [Environment Variables](#environment-variables) · [ConfigMaps](#configmaps) · [Secrets](#secrets) · [Multi-Container Pods](#multi-container-pods) · [Autoscaling](#autoscaling) · [Horizontal Pod Autoscaler](#horizontal-pod-autoscaler) · [In-Place Pod Resizing](#in-place-pod-resizing) · [Vertical Pod Autoscaler](#vertical-pod-autoscaler) |
+| 🛠️ | [5. Cluster Maintenance](#5-cluster-maintenance) | [OS Upgrades](#os-upgrades) · [Kubernetes Releases](#kubernetes-releases) · [Backup and Restore](#backup-and-restore) |
+| 🔐 | [6. Security](#6-security) | [Authentication](#authentication) · [TLS in Kubernetes](#tls-in-kubernetes) · [Certificate Signing Requests](#certificate-signing-requests) · [Kubeconfig](#kubeconfig) · [API Groups](#api-groups) · [Authorization](#authorization) · [Role-Based Access Control](#role-based-access-control) · [Cluster Roles](#cluster-roles) · [Service Accounts](#service-accounts) · [Image Security](#image-security) · [Network Policies](#network-policies) |
+| 🧩 | [7. Extending Kubernetes](#7-extending-kubernetes) | [Custom Resource Definitions](#custom-resource-definitions) · [Operator Framework](#operator-framework) |
+| 💾 | [8. Storage](#8-storage) | [Docker Storage](#docker-storage) · [Docker Volume Drivers](#docker-volume-drivers) · [Container Storage Interface](#container-storage-interface) · [Volumes](#volumes) · [Persistent Volumes](#persistent-volumes) · [Persistent Volume Claims](#persistent-volume-claims) · [Storage Classes](#storage-classes) |
+| 🌐 | [9. Networking](#9-networking) | [Networking Prerequisites](#networking-prerequisites) · [Pod Networking](#pod-networking) · [CNI in Kubernetes](#cni-in-kubernetes) · [IP Address Management](#ip-address-management) · [Service Networking](#service-networking) · [CoreDNS in Kubernetes](#coredns-in-kubernetes) · [Ingress](#ingress) · [Gateway API](#gateway-api) |
+| 🏗️ | [10. Cluster Installation](#10-cluster-installation) | [Kubeadm](#kubeadm) |
+| ⎈ | [11. Helm](#11-helm) | [Helm Basics](#helm-basics) · [Helm Charts](#helm-charts) · [Customizing Chart Parameters](#customizing-chart-parameters) · [Helm Releases](#helm-releases) |
+| 🧬 | [12. Kustomize](#12-kustomize) | [Kustomization File](#kustomization-file) · [Patches](#patches) · [Patching Dictionaries](#patching-dictionaries) · [Patching Lists](#patching-lists) · [Overlays](#overlays) · [Components](#components) |
+| 🩺 | [13. Troubleshooting](#13-troubleshooting) | [Cluster Components](#cluster-components) · [Inspecting Multi-Container Pods](#inspecting-multi-container-pods) |
+
+---
+
+## 1. Core Concepts
+
+### ReplicaSet
+
+```yaml
 apiVersion: apps/v1
 kind: ReplicaSet
 metadata:
@@ -22,29 +55,24 @@ spec:
       containers:
       - name: nginx
         image: nginx
-  replicas: 3
-  selector: 
-    matchLabels: 
-      type: front-end
 ```
 
-```
+```bash
 kubectl create -f replicaset-definition.yaml
+kubectl get replicaset                      # short: k get rs
+kubectl replace -f replicaset-definition.yaml
 kubectl scale --replicas=6 -f replicaset-definition.yaml
 kubectl scale --replicas=6 replicaset myapp-replicaset
-kubectl get replicaset
-kuebectl delete replicaset myapp-replicaset
-kubectl replace -f replicaset-definition.yaml
-k get rs
+kubectl delete replicaset myapp-replicaset
 ```
 
 ### Deployment
 
-```
+```yaml
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: replicaset-1
+  name: myapp-deployment
 spec:
   replicas: 2
   selector:
@@ -58,146 +86,129 @@ spec:
       containers:
       - name: nginx
         image: nginx
-  replicas: 3
-  selector: 
-    matchLabels: 
-      type: front-end
 ```
-```
-kubectl get deployment
+
+```bash
 kubectl create -f deployment-definition.yaml
-kubctl get all (to see all pods replicasset deployments)
+kubectl get deployment
+kubectl get all        # pods, replicasets and deployments at once
 ```
 
-### Generate YAML templates
+### Generate YAML Templates
 
-Using the kubectl run command can help in generating a YAML template.
+`kubectl run` and `kubectl create` can generate a YAML template for you.
 
-Create an NGINX Pod
-```
-kubectl run nginx --image=nginx
-```
+| Goal | Command |
+| :--- | :--- |
+| Create an NGINX pod | `kubectl run nginx --image=nginx` |
+| Generate a pod manifest without creating it | `kubectl run nginx --image=nginx --dry-run=client -o yaml` |
+| Create a deployment | `kubectl create deployment --image=nginx nginx` |
+| Generate a deployment manifest without creating it | `kubectl create deployment --image=nginx nginx --dry-run=client -o yaml` |
+| …and save it to a file | `kubectl create deployment --image=nginx nginx --dry-run=client -o yaml > nginx-deployment.yaml` |
+| Generate a deployment with 4 replicas (k8s 1.19+) | `kubectl create deployment --image=nginx nginx --replicas=4 --dry-run=client -o yaml > nginx-deployment.yaml` |
 
-Generate POD Manifest YAML file (-o yaml). Don’t create it(–dry-run)
-```
-kubectl run nginx --image=nginx --dry-run=client -o yaml
-```
+Make the changes you need in the file (for example, more replicas), then create the deployment:
 
-Create a deployment
-```
-kubectl create deployment --image=nginx nginx
-```
-
-Generate Deployment YAML file (-o yaml). Don’t create it(–dry-run)
-
-```
-kubectl create deployment --image=nginx nginx --dry-run=client -o yaml
-```
-
-Generate Deployment YAML file (-o yaml). Don’t create it(–dry-run) and save it to a file.
-```
-kubectl create deployment --image=nginx nginx --dry-run=client -o yaml > nginx-deployment.yaml
-```
-
-Make necessary changes to the file (for example, adding more replicas) and then create the deployment.
-
-```
+```bash
 kubectl create -f nginx-deployment.yaml
 ```
-OR
 
-In k8s version 1.19+, we can specify the –replicas option to create a deployment with 4 replicas.
+> [!TIP]
+> `-o yaml` prints the manifest and `--dry-run=client` stops kubectl from creating the object.
 
-```
-kubectl create deployment --image=nginx nginx --replicas=4 --dry-run=client -o yaml > nginx-deployment.yaml
-```
+### Services
 
-### Service
+> 📌 Not sure which port goes where? See [Determining Service port numbers](determinate_port_number.md).
 
-- Nodeport: 
+| Type | Reachable from |
+| :--- | :--- |
+| `ClusterIP` (default) | Inside the cluster only |
+| `NodePort` | Outside the cluster, at `<Node-IP>:<nodePort>` (`30000–32767`) |
+| `LoadBalancer` | Outside the cluster, through a cloud provider's load balancer |
 
- ```
+#### NodePort
+
+```yaml
 apiVersion: v1
 kind: Service
 metadata:
   name: myapp-service
 spec:
   type: NodePort
-  ports: 
-  - targetPort:80
+  ports:
+  - targetPort: 80
     port: 80
-    nodePort:30008
-
-  selector: 
+    nodePort: 30008
+  selector:
     app: myapp
     type: front-end
 ```
-```
+
+```bash
 kubectl create -f service-definition.yaml
-kuebctl get services
+kubectl get services
 ```
 
-- cluster ip: 
-```
+#### ClusterIP
+
+```yaml
 apiVersion: v1
 kind: Service
 metadata:
   name: back-end
 spec:
   type: ClusterIP
-  ports: 
+  ports:
   - targetPort: 80
     port: 80
-    nodePort: 30008
-
-  selector: 
+  selector:
     app: myapp
     type: back-end
 ```
 
-- LoadBalancer 
-```
+#### LoadBalancer
+
+```yaml
 apiVersion: v1
 kind: Service
 metadata:
   name: back-end
 spec:
   type: LoadBalancer
-  ports: 
-  - targetPort:80
+  ports:
+  - targetPort: 80
     port: 80
-    nodePort:30008
-
-  selector: 
+    nodePort: 30008
+  selector:
     app: myapp
     type: back-end
 ```
 
+### Namespaces
 
-### NameSpace
+A Service's full DNS name: **`db-service.dev.svc.cluster.local`**
 
-db-service.dev.svc.cluster.local 
+| Part | Meaning |
+| :--- | :--- |
+| `db-service` | Service name |
+| `dev` | Namespace |
+| `svc` | Service subdomain |
+| `cluster.local` | Cluster domain |
 
-db-service = service name
-dev = namespace
-svc = service 
-cluster.local = domain 
-
-```
-kubectl get pods --namespace=kube-system 
-kubectl crate -f pod.definition.yaml --namespace=dev
+```bash
+kubectl get pods --namespace=kube-system
+kubectl create -f pod-definition.yaml --namespace=dev
 kubectl expose pod redis --port=6379 --name=redis-service --type=ClusterIP
 ```
 
-add namespace in a pod
+Set the namespace inside the pod definition:
 
-```
+```yaml
 apiVersion: v1
 kind: Pod
-
 metadata:
   name: myapp-pod
-  namespace: dev <---- namespace
+  namespace: dev   # <---- namespace
   labels:
     app: myapp
     type: front-end
@@ -207,34 +218,33 @@ spec:
       image: nginx
 ```
 
-namespace definition file
+Namespace definition file:
 
-```
+```yaml
 apiVersion: v1
-kind: Namespace 
-metadata: 
+kind: Namespace
+metadata:
   name: dev
 ```
 
-```
+```bash
 kubectl create -f namespace-dev.yaml
 kubectl create namespace dev
-kubectl config set-contect $(kubectl config current-context) --namespace=dev
-kubectl get pods --all-namespace
+kubectl config set-context $(kubectl config current-context) --namespace=dev   # switch default namespace
+kubectl get pods --all-namespaces
 k get namespace
 ```
 
-resource quota
+Limit resources in a namespace with a resource quota:
 
-```
+```yaml
 apiVersion: v1
-kind: Namespace 
-metadata: 
-  name: dev
+kind: ResourceQuota
+metadata:
+  name: compute-quota
   namespace: dev
-
-spec: 
-  hard: 
+spec:
+  hard:
     pods: "10"
     requests.cpu: "4"
     requests.memory: 5Gi
@@ -242,262 +252,281 @@ spec:
     limits.memory: 10Gi
 ```
 
-### Exam tips 
+### Exam Tips
 
-```
+Imperative commands save a lot of time:
+
+```bash
 k run --image=nginx nginx
 k create deployment --image=nginx nginx
 k expose deployment nginx --port 80
-k edit deployment nginx 
+k edit deployment nginx
 k scale deployment nginx --replicas=5
 k set image deployment nginx nginx=nginx:1.18
 ```
 
-api resourcces
+Explore the API resources:
 
-```
+```bash
 kubectl api-resources
-k explain pods 
+k explain pods
 k explain pods.spec
-k explian pods --recursive
+k explain pods --recursive
 kubectl run custom-nginx --image=nginx --port=8080
 ```
 
-### Manual scheduling 
+<p align="right"><a href="#top">⬆ back to top</a></p>
 
-manual scheduling in a pod
+---
 
-```
+## 2. Scheduling
+
+### Manual Scheduling
+
+Assign a pod to a node yourself with `nodeName`:
+
+```yaml
 apiVersion: v1
 kind: Pod
-metadata: 
+metadata:
   name: nginx
-spec: 
+spec:
   nodeName: node01
-  containers: 
+  containers:
   - image: nginx
-    name: nginx 
+    name: nginx
 ```
 
-```
+```bash
 k get pods --watch
 ```
 
-### Labels and slectors
-pod:
-```
+### Labels and Selectors
+
+Pod:
+
+```yaml
 apiVersion: v1
 kind: Pod
-metada: 
-  name: simpple-webapp
-  labels: 
+metadata:
+  name: simple-webapp
+  labels:
     app: App1
-    function: fron-end
+    function: front-end
 spec:
   containers:
   - name: simple-webapp
     image: simple-webapp
-    ports: 
+    ports:
       - containerPort: 8080
 ```
 
-```
-k get pods --selectror app=App1
+```bash
+k get pods --selector app=App1
 k get all --selector env=prod
-k get pods --selector env=prod --no-headers | wc -l 
+k get pods --selector env=prod --no-headers | wc -l
 k get all --selector env=prod,bu=finance,tier=frontend
 ```
 
-replicaset
+ReplicaSet:
 
-```
+```yaml
 apiVersion: apps/v1
 kind: ReplicaSet
-metada: 
+metadata:
   name: simple-webapp
   labels:
     app: App1
-    functions: front-end
+    function: front-end
   annotations:
-    buildverson: 1.34
+    buildversion: "1.34"
 spec:
   replicas: 3
-  selector: 
+  selector:
     matchLabels:
       app: App1
-   template:
-     metada:
-       labels:
-         app: app1
-         function: front-end
+  template:
+    metadata:
+      labels:
+        app: App1
+        function: front-end
     spec:
-      containers: 
+      containers:
       - name: simple-webapp
         image: simple-webapp
 ```
 
-### Tains and rolerations 
+> [!IMPORTANT]
+> The `selector.matchLabels` must match the labels in the pod `template`.
 
-```
+### Taints and Tolerations
+
+```bash
 k taint nodes node-name key=value:taint-effect
-```
-taint-effect: what happens to POD's that do not tolerate this taint? 
- - noshcedule 
- - preferNoschedule
- - enexecute
-
-
-```
 k taint node node1 app=blue:NoSchedule
 ```
 
-```
-apiVersion v1
-kind: Pod
-metada: 
-  name: myapp-pod
-  spec:
-    containers: 
-    - name: nginx-container
-      image: nginx
-    tolearions: 
-      - key: app
-        operator: "Equal"
-        value: blue
-        effect: NodeSchedule 
-```
+The **taint effect** says what happens to pods that do **not** tolerate the taint:
 
-### Node selector
+| Effect | What happens |
+| :--- | :--- |
+| `NoSchedule` | New pods are not scheduled on the node |
+| `PreferNoSchedule` | The scheduler tries to avoid the node, but it's not guaranteed |
+| `NoExecute` | New pods are not scheduled and existing pods are evicted |
 
-```
+```yaml
 apiVersion: v1
 kind: Pod
 metadata:
   name: myapp-pod
-spec: 
-  containers: 
-  - name: data-processor
-    image: data-processor
-  nodeSelector: 
-    size: Large
+spec:
+  containers:
+  - name: nginx-container
+    image: nginx
+  tolerations:
+  - key: app
+    operator: "Equal"
+    value: blue
+    effect: NoSchedule
 ```
 
-```
-k label nodes node-1 size=Large 
-```
+### Node Selector
 
-### Node Affinity 
-
-```
+```yaml
 apiVersion: v1
 kind: Pod
-metadata: 
+metadata:
   name: myapp-pod
-spec: 
+spec:
   containers:
   - name: data-processor
     image: data-processor
-  affinity: 
-    nodeAffinity: 
+  nodeSelector:
+    size: Large
+```
+
+```bash
+k label nodes node-1 size=Large
+```
+
+### Node Affinity
+
+```yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: myapp-pod
+spec:
+  containers:
+  - name: data-processor
+    image: data-processor
+  affinity:
+    nodeAffinity:
       requiredDuringSchedulingIgnoredDuringExecution:
-        nodeSelectorTerms: 
-        - matchExpressions: 
+        nodeSelectorTerms:
+        - matchExpressions:
           - key: size
             operator: NotIn
-            values: 
+            values:
             - Small
 ```
 
-node affinity types: 
+| Node affinity type | During scheduling | During execution |
+| :--- | :--- | :--- |
+| `requiredDuringSchedulingIgnoredDuringExecution` | Required | Ignored |
+| `preferredDuringSchedulingIgnoredDuringExecution` | Preferred | Ignored |
 
-- requiredDuringSchedulingIgnoredDuringExecution 
-- preferredDuringSchedulingIgoneredDuringExecution
+Add affinity to an existing deployment:
 
-
-```
+```bash
 kubectl edit deployment blue
 ```
 
-### Resources requests
+### Resource Requests and Limits
 
-resources pod 
-
-```
+```yaml
 apiVersion: v1
 kind: Pod
-metadata: 
+metadata:
   name: simple-webapp-color
-  labels: 
+  labels:
     name: simple-webapp-color
-spec: 
-  containers: 
+spec:
+  containers:
   - name: simple-webapp-color
     image: simple-webapp-color
-    ports: 
+    ports:
       - containerPort: 8080
-    resources: 
-      requests: 
-        memory: "4Gi"
+    resources:
+      requests:
+        memory: "1Gi"
+        cpu: 1
+      limits:
+        memory: "2Gi"
         cpu: 2
-      limits: 
-        memory: "2Gi" 
-        cpu: 2 
 ```
 
-what happen when a pod exceed limits? 
-pod terminated with:
-oom ---> out of memory 
-
+> [!WARNING]
+> **What happens when a pod exceeds its limits?**
+> - **Memory** over the limit → the container is terminated with **`OOMKilled`** (out of memory).
+> - **CPU** over the limit → the container is throttled.
 
 ### LimitRange
-- cpu
-```
+
+Default, minimum and maximum values per container in a namespace.
+
+**CPU**
+
+```yaml
 apiVersion: v1
 kind: LimitRange
-metadata: 
+metadata:
   name: cpu-resource-constraint
-spec: 
+spec:
   limits:
-  - default: 
-      cpu: 500m 
-    defaultRequests: 
+  - default:
       cpu: 500m
-    max: 
-      cpu: 1
+    defaultRequest:
+      cpu: 500m
+    max:
+      cpu: "1"
     min:
       cpu: 100m
     type: Container
 ```
 
-- memory
-```
+**Memory**
+
+```yaml
 apiVersion: v1
 kind: LimitRange
-metadata: 
+metadata:
   name: memory-resource-constraint
-spec: 
+spec:
   limits:
-  - default: 
-      memory: 500m 
-    defaultRequests: 
-      memory: 500m
-    max: 
-      memory: 1
+  - default:
+      memory: 500Mi
+    defaultRequest:
+      memory: 500Mi
+    max:
+      memory: 1Gi
     min:
-      memory: 100m
+      memory: 100Mi
     type: Container
 ```
 
-### Resource Quotas
+### ResourceQuota
 
-```
+Total limits for all the pods in a namespace.
+
+```yaml
 apiVersion: v1
 kind: ResourceQuota
-metadata: 
+metadata:
   name: my-resource-quota
-spec: 
-  hard: 
-    requets.cpu: 4
+spec:
+  hard:
+    requests.cpu: 4
     requests.memory: 4Gi
     limits.cpu: 10
     limits.memory: 10Gi
@@ -505,285 +534,301 @@ spec:
 
 ### DaemonSet
 
-```
+Runs one copy of a pod on every node.
+
+```yaml
 apiVersion: apps/v1
 kind: DaemonSet
-metadata: 
-  name: monitoring-deamon
-spec: 
-  selector: 
-    matchLabels: 
+metadata:
+  name: monitoring-daemon
+spec:
+  selector:
+    matchLabels:
       app: monitoring-agent
-  template: 
+  template:
     metadata:
-      labels: 
+      labels:
         app: monitoring-agent
     spec:
-      containers: 
+      containers:
       - name: monitoring-agent
         image: monitoring-agent
 ```
 
-```
+```bash
 k create -f daemon-set.yaml
 k get daemonsets
 k get daemonsets --all-namespaces
-k describe deamonsetskubectl describe daemonset kube-flannel-ds --namespace=kube-flannel
-
+kubectl describe daemonset kube-flannel-ds --namespace=kube-flannel
 ```
 
+> [!TIP]
+> There's no `kubectl create daemonset`. Generate a deployment and edit it into a DaemonSet:
+>
+> ```bash
+> kubectl create deployment elasticsearch --image=registry.k8s.io/fluentd-elasticsearch:1.20 -n kube-system --dry-run=client -o yaml > fluentd.yaml
+> ```
 
+### Static Pods
 
-kubectl create deployment elasticsearch --image=registry.k8s.io/fluentd-elasticsearch:1.20 -n kube-system --dry-run=client -o yaml > fluentd.yaml
+The default directory for static pod definition files is **`/etc/kubernetes/manifests`**.
 
+> [!IMPORTANT]
+> The path doesn't have to be `/etc/kubernetes/manifests`. Always check the path configured in the kubelet configuration file.
 
-### Static pods
+#### Lab: delete the static pod `static-greenbox`
 
-What is the path of the directory holding the static pod definition files? 
- -> /etc/kubernetes/manifests
+**1. Find the node the pod runs on**
 
- First, let's identify the node in which the pod called static-greenbox is created. To do this, run:
+```console
 controlplane:~# kubectl get pods --all-namespaces -o wide  | grep static-greenbox
 default       static-greenbox-node01                 1/1     Running   0          19s     10.244.1.2   node01       <none>           <none>
-controlplane:~#
-From the result of this command, we can see that the pod is running on node01.
+```
 
+The pod is running on `node01`.
 
-Next, SSH to node01 and identify the path configured for static pods in this node.
+**2. SSH to the node and find the static pod path**
 
-Important: The path need not be /etc/kubernetes/manifests. Make sure to check the path configured in the kubelet configuration file.
-controlplane:~# ssh node01 
-node01:~# ps -ef |  grep /usr/bin/kubelet 
+```console
+controlplane:~# ssh node01
+node01:~# ps -ef |  grep /usr/bin/kubelet
 root        4147       1  0 14:05 ?        00:00:00 /usr/bin/kubelet --bootstrap-kubeconfig=/etc/kubernetes/bootstrap-kubelet.conf --kubeconfig=/etc/kubernetes/kubelet.conf --config=/var/lib/kubelet/config.yaml --container-runtime-endpoint=unix:///var/run/containerd/containerd.sock --pod-infra-container-image=registry.k8s.io/pause:3.9
 root        4773    4733  0 14:05 pts/0    00:00:00 grep /usr/bin/kubelet
 
 node01:~# grep -i staticpod /var/lib/kubelet/config.yaml
 staticPodPath: /etc/just-to-mess-with-you
+```
 
-node01:~# 
-Here the staticPodPath is /etc/just-to-mess-with-you
+Here the `staticPodPath` is `/etc/just-to-mess-with-you`.
 
+**3. Go to that directory and delete the YAML file**
 
-Navigate to this directory and delete the YAML file:
+```console
 node01:/etc/just-to-mess-with-you# ls
 greenbox.yaml
-node01:/etc/just-to-mess-with-you# rm -rf greenbox.yaml 
-node01:/etc/just-to-mess-with-you#
-wait for 30 seconds.
-
-### PRIORITY CLASSES
-
+node01:/etc/just-to-mess-with-you# rm -rf greenbox.yaml
 ```
+
+Wait about 30 seconds for the pod to disappear.
+
+### Priority Classes
+
+```bash
 k get priorityclass
 ```
 
-- priority class create: 
+Create a priority class:
 
-```
-apiVersion: shceduling.k8s.io/v1
+```yaml
+apiVersion: scheduling.k8s.io/v1
 kind: PriorityClass
-metadata: 
-  name: high-priority   <---
+metadata:
+  name: high-priority   # <---
 value: 1000000000
-description: "Priority class for mission critial pods"
+description: "Priority class for mission critical pods"
 ```
 
-to define the prority in a pod we set the priority in the pod manifest: 
+Set the priority in the pod manifest:
 
-```
+```yaml
 apiVersion: v1
 kind: Pod
-metadata: 
+metadata:
   name: nginx
-  labels: 
+  labels:
     name: nginx
-spec: 
-  containers: 
+spec:
+  containers:
   - name: nginx
     image: nginx
-    ports: 
+    ports:
      - containerPort: 8080
-  priorityClassName: high-priority  <---
+  priorityClassName: high-priority   # <---
 ```
 
-
-```
+```bash
 k get priorityclass
 kubectl get pods -o custom-columns="NAME:.metadata.name,PRIORITY:.spec.priorityClassName"
 ```
 
 ### Multiple Schedulers
 
-```
+Scheduler configuration:
+
+```yaml
 apiVersion: kubescheduler.config.k8s.io/v1
 kind: KubeSchedulerConfiguration
-profiles: 
-- shcedulerNmae: my-scheduler 
+profiles:
+- schedulerName: my-scheduler
 ```
 
-scheduler pod: 
+Scheduler pod:
 
-```
+```yaml
 apiVersion: v1
 kind: Pod
-metadata: 
+metadata:
   name: my-custom-scheduler
   namespace: kube-system
-spec: 
-  containers: 
-  - command: 
-   - kube-scheduler
-   - --address=127.0.0.1
-   - --kubeconfig=/etc/kubernetes/scheduler.conf
-   - --config=/etc/kubernetes/my-scheduler-config
-   image: k8s.gcr.io/kube-scheduelr-amd64:v1.xx.x
-   name: kube-system
+spec:
+  containers:
+  - command:
+    - kube-scheduler
+    - --address=127.0.0.1
+    - --kubeconfig=/etc/kubernetes/scheduler.conf
+    - --config=/etc/kubernetes/my-scheduler-config
+    image: k8s.gcr.io/kube-scheduler-amd64:v1.xx.x
+    name: kube-scheduler
 ```
 
+Pod that uses the custom scheduler:
 
-pod definition 
-
-```
+```yaml
 apiVersion: v1
 kind: Pod
-metadata: 
-  name: nginc
-spec: 
-  containers: 
+metadata:
+  name: nginx
+spec:
+  containers:
   - name: nginx
     image: nginx
   schedulerName: my-custom-scheduler
 ```
 
-see scheduler logs 
-```
-k get my-consum-scheduler --namespace=kube-system
+See the scheduler logs:
+
+```bash
+k logs my-custom-scheduler --namespace=kube-system
 ```
 
-### Logging and monitoring 
+<p align="right"><a href="#top">⬆ back to top</a></p>
 
-```
+---
+
+## 3. Logging and Monitoring
+
+### Monitoring
+
+```bash
 k top node
 k top pod
 ```
 
-- App logs 
+### Application Logs
 
-```
+```bash
 k logs -f <podName>
-
 ```
 
-### Rollout command
+<p align="right"><a href="#top">⬆ back to top</a></p>
 
-```
+---
+
+## 4. Application Lifecycle
+
+### Rollouts and Rollbacks
+
+```bash
 k rollout status deployment/myapp-deployment
 k rollout history deployment/myapp-deployment
-```
-
-- deployment strategy 
-
---> rolling update 
-
-```
 k rollout undo deployment myapp-deployment
 ```
 
-### Commands and arguments (docker)
+> [!NOTE]
+> The default deployment strategy is **rolling update**.
 
-```
-apiVersion: vi
+### Commands and Arguments
+
+```yaml
+apiVersion: v1
 kind: Pod
 metadata:
   name: ubuntu-sleeper-pod
-spec: 
-  containers: 
+spec:
+  containers:
     - name: ubuntu-sleeper
       image: ubuntu-sleeper
       command: ["sleep2.0"]
       args: ["10"]
 ```
 
-entrypoint -> sleep2.0
-CMD -> 10 
+| Dockerfile | Pod spec | Purpose | Example |
+| :--- | :--- | :--- | :--- |
+| `ENTRYPOINT` | `command` | The main executable/binary to run | `sleep2.0` |
+| `CMD` | `args` | The default arguments passed to that executable | `10` |
 
+### Environment Variables
 
-ENTRYPOINT-> command -> The main executable/binary to run
-
-CMD	-> args	 -> The default arguments passed to that executable
-
-### Env variables 
-
-```
+```yaml
 apiVersion: v1
 kind: Pod
-metadata: 
+metadata:
   name: simple-webapp-color
-spec: 
-  containers: 
+spec:
+  containers:
    - name: simple-webapp-color
      image: simple-webapp-color
-     ports: 
+     ports:
        - containerPort: 8080
-     env: 
+     env:
        - name: APP_COLOR
-         value: pink 
+         value: pink
 ```
 
 ### ConfigMaps
-1: create configMap
 
-    - imperative way
-```
+#### 1. Create the ConfigMap
+
+**Imperative**
+
+```bash
 k create configmap <config-name> \
-  --from-literal=<key>=<value>\
-```
+  --from-literal=<key>=<value>
 
-```
 k create configmap app-config \
-  --from-literal=APP_COLOR=blue\
-  --from-literal=APP_MOD=prod
+  --from-literal=APP_COLOR=blue \
+  --from-literal=APP_MODE=prod
 ```
 
-    - declarative
+**Declarative**
 
-```
-k create -f 
-```
-
-```
+```yaml
 apiVersion: v1
 kind: ConfigMap
-metadata: 
+metadata:
   name: app-config
-data: 
+data:
   APP_COLOR: blue
   APP_MODE: prod
 ```
 
-```
+```bash
 k create -f config-map.yaml
 ```
 
+#### 2. Inject it into a pod
 
-2: inject into pod
-```
+All the keys as environment variables:
+
+```yaml
 apiVersion: v1
 kind: Pod
-metadata: 
+metadata:
   name: simple-webapp-color
-spec: 
-  containers: 
+spec:
+  containers:
    - name: simple-webapp-color
      image: simple-webapp-color
-     ports: 
+     ports:
        - containerPort: 8080
-     env: 
-       - name: APP_COLOR
-         value: pink 
+     envFrom:
+       - configMapRef:
+           name: app-config
 ```
 
-```
+A single key:
+
+```yaml
 ---
 apiVersion: v1
 kind: Pod
@@ -806,213 +851,206 @@ spec:
 
 ### Secrets
 
-- imperative 
-```
-k create secret generic
-```
+#### 1. Create the Secret
 
-```
-k create secret generic <config-name> \
-  --from-literal=<key>=<value> 
-```
+**Imperative**
 
+```bash
+k create secret generic <secret-name> \
+  --from-literal=<key>=<value>
 
-```
 k create secret generic app-secret \
   --from-literal=DB_Host=mysql
 ```
 
-from a file
-```
-k create secret generic app-secret \
-  --from-file=<path-to-file>
-```
+From a file:
 
-```
+```bash
+k create secret generic <secret-name> \
+  --from-file=<path-to-file>
+
 k create secret generic app-secret \
   --from-file=app_secret.properties
 ```
 
+**Declarative.** Values under `data` must be base64-encoded:
 
-- declarative
-```
-k create -f 
+```bash
+echo -n 'mysql' | base64     # bXlzcWw=
 ```
 
-```
+```yaml
 apiVersion: v1
 kind: Secret
-metadata: 
+metadata:
   name: app-secret
-data: 
-  DB_Host: mysql 
-  DB_User: root
-  DB_Password: passwrd
+data:
+  DB_Host: bXlzcWw=          # mysql
+  DB_User: cm9vdA==          # root
+  DB_Password: cGFzc3dyZA==  # passwrd
 ```
 
-```
+```bash
 k create -f secret-data.yaml
 ```
 
-```
-echo -n 'mysql' | base64
-```
+**View secrets**
 
-```
+```bash
 k get secrets
 k describe secrets
 k get secret app-secret -o yaml
 ```
 
--- Env 
-pod define: 
+> [!WARNING]
+> Secrets are only **base64-encoded, not encrypted**. Anyone who can read the Secret can decode it.
 
-```
+#### 2. Inject it into a pod
+
+All the keys as environment variables:
+
+```yaml
 apiVersion: v1
-kind: Pod 
-metadata: 
+kind: Pod
+metadata:
   name: simple-webapp-color
-lablels: 
-  name: simple-webapp-color
-spec: 
-  containers: 
+  labels:
+    name: simple-webapp-color
+spec:
+  containers:
   - name: simple-webapp-color
     image: simple-webapp-color
-    ports: 
+    ports:
       - containerPort: 8080
-    envFrom: 
-      - secretRef: 
-        name: app-secrets
+    envFrom:
+      - secretRef:
+          name: app-secret
 ```
 
-```
+```bash
 k create -f pod-definition.yaml
 ```
 
+A single key:
 
-
-
-
-
--- single ENV
-pod define: 
-
-```
+```yaml
 apiVersion: v1
-kind: Pod 
-metadata: 
+kind: Pod
+metadata:
   name: simple-webapp-color
-lablels: 
-  name: simple-webapp-color
-spec: 
-  containers: 
+  labels:
+    name: simple-webapp-color
+spec:
+  containers:
   - name: simple-webapp-color
     image: simple-webapp-color
-    ports: 
+    ports:
       - containerPort: 8080
-    env: 
+    env:
       - name: DB_Password
-        valueFrom: 
-          secretKeyRef: 
+        valueFrom:
+          secretKeyRef:
             name: app-secret
             key: DB_Password
 ```
 
+As a volume:
 
--- volume 
-
-
-
-```
-apiVersion: v1
-kind: Pod 
-metadata: 
-  name: simple-webapp-color
-lablels: 
-  name: simple-webapp-color
-spec: 
-  containers: 
-  - name: simple-webapp-color
-    image: simple-webapp-color
-    ports: 
-      - containerPort: 8080
-    volumes: 
-    - name: app-secret-volume
-      secret: 
-        secretName: app-secret
-```
-
-### Multi-container pods
-
-- co-located containers: no hability to find which one starts first
-- regular init containers
-- sidecar container: specify wich the starting order 
-
-
-- co-located containers: 
-```
+```yaml
 apiVersion: v1
 kind: Pod
-metadata: 
+metadata:
+  name: simple-webapp-color
+  labels:
+    name: simple-webapp-color
+spec:
+  containers:
+  - name: simple-webapp-color
+    image: simple-webapp-color
+    ports:
+      - containerPort: 8080
+  volumes:
+  - name: app-secret-volume
+    secret:
+      secretName: app-secret
+```
+
+### Multi-Container Pods
+
+| Pattern | Defined under | Start order |
+| :--- | :--- | :--- |
+| Co-located containers | `containers` | No way to control which one starts first |
+| Regular init containers | `initContainers` | Run one at a time, to completion, before the main containers |
+| Sidecar containers | `initContainers` + `restartPolicy: Always` | Start before the main containers, in the order you specify, and keep running |
+
+**Co-located containers**
+
+```yaml
+apiVersion: v1
+kind: Pod
+metadata:
   name: simple-webapp
-  labels: 
+  labels:
     name: simple-webapp
-spec: 
-  containers: 
+spec:
+  containers:
   - name: web-app
     image: web-app
-    ports: 
+    ports:
       - containerPort: 8080
   - name: main-app
     image: main-app
 ```
 
-- regular init containers:
-```
+**Regular init containers**
+
+```yaml
 apiVersion: v1
 kind: Pod
-metadata: 
+metadata:
   name: simple-webapp
-  labels: 
+  labels:
     name: simple-webapp
-spec: 
-  containers: 
+spec:
+  containers:
   - name: web-app
     image: web-app
-    ports: 
+    ports:
       - containerPort: 8080
-  initContainers: 
+  initContainers:
   - name: db-checker
-    image: busyboc
-    command: 'wait-for-db-to-start.sh'
+    image: busybox
+    command: ['wait-for-db-to-start.sh']
   - name: api-checker
     image: busybox
-    command: 'wait-for-another-api.sh'
+    command: ['wait-for-another-api.sh']
 ```
 
+**Sidecar containers**
 
-- sidecar containers:
-```
+```yaml
 apiVersion: v1
-kind: pod
-metatada: 
-  name: simple-webap
-  labels: 
+kind: Pod
+metadata:
+  name: simple-webapp
+  labels:
     name: simple-webapp
-spec: 
-  containers: 
+spec:
+  containers:
   - name: web-app
     image: web-app
-    ports: 
+    ports:
       - containerPort: 8080
-  initContainers: 
+  initContainers:
   - name: log-shipper
     image: busybox
-    command: 'setup-log-shipper.sh'
-    restartPolicy: Always 
+    command: ['setup-log-shipper.sh']
+    restartPolicy: Always
 ```
 
-```
+#### Lab: log-shipping sidecar
+
+```yaml
 apiVersion: v1
 kind: Pod
 metadata:
@@ -1044,411 +1082,368 @@ spec:
     name: log-volume
 ```
 
-```
-kubectl -n elastic-stack logs app -c sidecar
-```
-
-see logs in the containers: 
-
-```
-kubectl -n elastic-stack exec app -- cat /log/app.log
+```bash
+kubectl -n elastic-stack logs app -c sidecar          # sidecar logs
+kubectl -n elastic-stack exec app -- cat /log/app.log  # logs inside the container
 ```
 
+### Autoscaling
 
-### Autoscaling 
+| What scales | Manual | Automated |
+| :--- | :--- | :--- |
+| **Cluster infrastructure** (horizontal) | `kubeadm join` (add nodes) | Cluster Autoscaler |
+| **Workloads** — horizontal | `k scale ...` | Horizontal Pod Autoscaler (HPA) |
+| **Workloads** — vertical | `k edit ...` | Vertical Pod Autoscaler (VPA) |
 
+### Horizontal Pod Autoscaler
 
-
-scaling cluster infra
-- Manual 
-    - horizontal: kubeadmjoin 
-- automated
-    - horizontal: cluster autoscaler
-
-scaling workloads
-- manual 
-  hoizontal: k scale ..
-  vertical: k edit ...
-- automated
-    - horizontal: horizontal pods autoscaler(HPA)
-    - vertival: Vertical pod autoscaler (VPA)
-
-
-### Horizonal pod autoscaler
-
-```
+```bash
 k top pod my-app-pod
-
 k scale deployment my-app --replicas=3
 
 k autoscale deployment my-app \
   --cpu-percent=50 --min=1 --max=10
 
 k get hpa
+k delete hpa my-app
 
-k delelete hpa
-```
-
-```
-apiVersion: autoscaling/v2
-kind: HorizontalPodAutoscaler
-metadata: 
-  name: my-app-hpa
-spec: 
-  scaleTargetRef: 
-    apiVersion: apps/v1
-    kind: Deloyment
-    name: my-app
-  minReplicas: 1
-  maxReplicas: 10
-  metrics: 
-   - type: Resource
-     resource: 
-       name: cpu 
-       target: 
-         tyep: Utilization 
-         averageUtilization: 50
-```
-
-
-```
 kubectl autoscale deployment nginx-deployment --max=3 --cpu=80%
 ```
 
-
-### In-place po resizing 
-
-```
-apiVersion: apps/v1
-```
-
-### Vertical pos autoscaling 
-
-```
-apiVersion: apps/v1
-kind: Deployment
-metadata: 
-  name: my-app
+```yaml
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: my-app-hpa
 spec:
-  replicas: 1
-  selector: 
-    matchLabels: 
-    app: my-app
-  template: 
-    metadata: 
-      labels: 
-        app: my-app
-    spec: 
-      containers: 
-        - name: my-app
-          image: nginx
-        resources: 
-          requests: 
-            cpu: "1"
-          limits: 
-            cpu: "500m"
-```
-
-```
-apiVersion: autoscaling.k8s.io/v1
-kind: VerticalPodAutoscaler
-metadata: 
-  name: my-app-vpa
-spec: 
-  targetRef: 
+  scaleTargetRef:
     apiVersion: apps/v1
     kind: Deployment
     name: my-app
-  updatePolicy: 
-    updateMode: "Auto" 
+  minReplicas: 1
+  maxReplicas: 10
+  metrics:
+   - type: Resource
+     resource:
+       name: cpu
+       target:
+         type: Utilization
+         averageUtilization: 50
+```
+
+### In-Place Pod Resizing
+
+> 🚧 *To do.*
+
+### Vertical Pod Autoscaler
+
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: my-app
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: my-app
+  template:
+    metadata:
+      labels:
+        app: my-app
+    spec:
+      containers:
+        - name: my-app
+          image: nginx
+          resources:
+            requests:
+              cpu: "250m"
+            limits:
+              cpu: "500m"
+```
+
+```yaml
+apiVersion: autoscaling.k8s.io/v1
+kind: VerticalPodAutoscaler
+metadata:
+  name: my-app-vpa
+spec:
+  targetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: my-app
+  updatePolicy:
+    updateMode: "Auto"
   resourcePolicy:
-    containerPolicies: 
+    containerPolicies:
       - containerName: "my-app"
-        miniAllowed: 
+        minAllowed:
           cpu: "250m"
-        macAllowed: 
+        maxAllowed:
           cpu: "2"
         controlledResources: ["cpu"]
 ```
-- vpa admission controller
-- vpan updater 
-- vpa recommender 
 
-```
+VPA components:
+
+- **VPA Recommender**
+- **VPA Updater**
+- **VPA Admission Controller**
+
+```bash
 k describe vpa my-app-vpa
 ```
 
-### Os upgrades
-- pod eviction timeout 
+<p align="right"><a href="#top">⬆ back to top</a></p>
 
+---
 
-```
-k drain node-1
-k uncordon node-1
-k cordon node-2
-```
+## 5. Cluster Maintenance
 
-### Kubernetes Release
+### OS Upgrades
 
-```
-kubeadm upgrade plan 
+| Command | Effect |
+| :--- | :--- |
+| `k drain node-1` | Evicts the pods and marks the node unschedulable |
+| `k cordon node-2` | Marks the node unschedulable (running pods stay) |
+| `k uncordon node-1` | Makes the node schedulable again |
+
+> [!NOTE]
+> **Pod eviction timeout:** how long Kubernetes waits for a node that's down before its pods are terminated.
+
+### Kubernetes Releases
+
+```bash
+kubeadm upgrade plan
 kubeadm upgrade apply
 ```
 
-### Backup and restore mathods
+### Backup and Restore
 
+> 🚧 *To do.*
 
-### Authentication 
+<p align="right"><a href="#top">⬆ back to top</a></p>
 
-- User auth mechanisms
-    - static token files (is not a recommenden approche)
-    - certificates
-        - tls certificates
-           garatie trust in two partys 
-           - private key 
-             server.key 
-             server.key.pem
-           - publick lock 
-             server.crt
-             client.pem
-             server.pem
-           - public key infrastructure (PKI)
-           ---
-           - root certificates: config in the CA server
-           - client certificates: config on the clients
-           - server certificates: conig in the servers
-         
-    - identity services
+---
 
+## 6. Security
 
-### TLC in k8
-- kube-apiserver(http server to manage the k8 components): 
-    apiserver.crt: 
-    apiserver.key:
-- etcd server (store info about our cluster)
-    etcd-x-server.crt
-    etcd-x-server.key
-- kubelete server (http server to talk with kubeapiserver to interca with the woker nodses)
-    kubelete.crt
-    kubelete.key
-- client compunents (us):
-    amdin.cr
-    admin.key
-- kube-scheduler (look for pods to kubeapiserver)
-    scheduler.crt 
-    amdin.key
-- kube-controller-manager (acces kube-apiserver)
-    controller-manager.crt
-    controller-manager.key 
-- kube-proxy (acces to kube-apiserver)
-    kube-proxy.crt
-    kube-procy.key 
+### Authentication
 
+User authentication mechanisms:
 
------
+- **Static token files** — *not a recommended approach*
+- **Certificates**
+- **Identity services**
 
-cert info: 
+#### TLS certificates
 
-```
+TLS certificates guarantee trust between two parties.
+
+| Key | Example files |
+| :--- | :--- |
+| Private key | `server.key`, `server-key.pem` |
+| Public key (certificate) | `server.crt`, `client.pem`, `server.pem` |
+
+**Public Key Infrastructure (PKI)**
+
+| Certificate | Configured on |
+| :--- | :--- |
+| Root certificates | The CA server |
+| Client certificates | The clients |
+| Server certificates | The servers |
+
+### TLS in Kubernetes
+
+| Component | Type | What it does | Certificate | Key |
+| :--- | :--- | :--- | :--- | :--- |
+| kube-apiserver | Server | HTTPS server that manages the k8s components | `apiserver.crt` | `apiserver.key` |
+| etcd server | Server | Stores the cluster info | `etcdserver.crt` | `etcdserver.key` |
+| kubelet | Server | HTTPS server on the worker nodes that talks with the kube-apiserver | `kubelet.crt` | `kubelet.key` |
+| Admin (us) | Client | Users who access the cluster | `admin.crt` | `admin.key` |
+| kube-scheduler | Client | Asks the kube-apiserver for pods to schedule | `scheduler.crt` | `scheduler.key` |
+| kube-controller-manager | Client | Accesses the kube-apiserver | `controller-manager.crt` | `controller-manager.key` |
+| kube-proxy | Client | Accesses the kube-apiserver | `kube-proxy.crt` | `kube-proxy.key` |
+
+**Inspect certificates**
+
+```bash
 cat /etc/kubernetes/manifests/kube-apiserver.yaml
 
-openssel x509 -in /etc/kubernetes/pki/apiserver.crt - text -noout
-
+openssl x509 -in /etc/kubernetes/pki/apiserver.crt -text -noout
 
 journalctl -u etcd.service -l
-
 kubectl logs etcd-master
 
 crictl ps -a
-
 crictl logs <containerID>
 ```
 
-### Create certificateSigningRequest Object
+### Certificate Signing Requests
 
+**1. The user creates a key**
 
-1. user create a key 
-
-```
-open ssl genrsa -out jane.key 2048
-```
-
-2. send the request to the admin 
-
-```
-openssl req -new -key jane.key -subj "/CN=jane" -out jane.csr 
-.
-.
-.
+```bash
+openssl genrsa -out jane.key 2048
 ```
 
-3. the admin take the key and create an certificat signing request object 
+**2. The user creates a signing request and sends it to the admin**
 
+```bash
+openssl req -new -key jane.key -subj "/CN=jane" -out jane.csr
 ```
-apiVersion: certificates.k8.io/v1
+
+**3. The admin creates a `CertificateSigningRequest` object**
+
+```bash
+cat jane.csr | base64 | tr -d "\n"
+```
+
+```yaml
+apiVersion: certificates.k8s.io/v1
 kind: CertificateSigningRequest
-metadata: 
-  name: jane-csr
-spec: 
-    singerName: Kubernetes.io/kube-apisercer-client
-    expirationSeconds: 600
-    usages: 
-    - clent auth 
-    request: <BASE64_ENCODED_CSR>
-    conditions: 
-    - tye: Approved
-      status: "True"
-      resons: KubectlApprove
-      message: "This CSR was approved by kubectl certificate approve" 
-      lastUpdateTime": "2026-02-03T11:46:10Z"
+metadata:
+  name: jane
+spec:
+  signerName: kubernetes.io/kube-apiserver-client
+  expirationSeconds: 600
+  usages:
+  - client auth
+  request: <BASE64_ENCODED_CSR>
 ```
 
+Once it's approved, the object's `status` shows:
 
-```
-cat jane.csr | base64
-.
-.
-.
+```yaml
+status:
+  conditions:
+  - type: Approved
+    status: "True"
+    reason: KubectlApprove
+    message: "This CSR was approved by kubectl certificate approve"
+    lastUpdateTime: "2026-02-03T11:46:10Z"
 ```
 
-4. List and approve cert 
+**4. List and approve the certificate**
 
-```
+```bash
 k get csr
-
 k certificate approve jane
-
-k get csr jane -o yaml 
+k get csr jane -o yaml
 
 kubectl certificate deny agent-smith
-
 k delete csr agent-smith
 ```
 
-the controllor manager is the responsible for the certs 
-    - csr-approving 
-    - csr-signing
+> [!NOTE]
+> The **controller manager** is responsible for certificates, through its `csr-approving` and `csr-signing` controllers:
+>
+> ```bash
+> cat /etc/kubernetes/manifests/kube-controller-manager.yaml
+> ```
 
-```
-cat /etc/kubernetes/manifests/kube-controller-manager.yaml
-```
+### Kubeconfig
 
+Without a kubeconfig you'd pass everything on every command:
 
-### Security kubeconfig 
-
-```
-k get pods 
-  --server my-kube-playground:6443
-  --client-key admin.key
-  --client-certificate admin.crt
+```bash
+k get pods \
+  --server my-kube-playground:6443 \
+  --client-key admin.key \
+  --client-certificate admin.crt \
   --certificate-authority ca.crt
 ```
 
-config file $HOME/.kube/config:
+Instead, put it in a config file (default `$HOME/.kube/config`):
 
-```
+```bash
 k get pods --kubeconfig config
 ```
-file
-```
-  --server my-kube-playground:6443
-  --client-key admin.key
-  --client-certificate admin.crt
-  --certificate-authority ca.crt
-```
 
-config file have three section 
+The config file has three sections:
 
-- clusters
-    development
-    productions
-    google
-- contect 
-    admin
-    dev user
-    prod user
-- user 
-    admin@procuction 
-    dev@google
+| Section | Examples |
+| :--- | :--- |
+| `clusters` | development, production, google |
+| `users` | admin, dev user, prod user |
+| `contexts` (which user uses which cluster) | admin@production, dev@google |
 
-
-```
+```yaml
 apiVersion: v1
 kind: Config
-clusters: 
-    - name: my-kube-playground 
-      cluster: 
+clusters:
+    - name: my-kube-playground
+      cluster:
         certificate-authority: ca.crt
         server: https://my-kube-playground:6443
 
-contexts: 
-    - name: my-kube-admin@my-kube-playground 
-      context: 
-        cluster: my-kube-playground 
-        user: my-kube-admin 
+contexts:
+    - name: my-kube-admin@my-kube-playground
+      context:
+        cluster: my-kube-playground
+        user: my-kube-admin
 
-user: 
-    - name: my-kube-admin 
-      user: 
+users:
+    - name: my-kube-admin
+      user:
         client-certificate: admin.crt
-        client-key: admin.key 
+        client-key: admin.key
 ```
 
-```
+```bash
 k config view
-k config view -kubeconfig=my-custom-config
-k config use-context prod-user@production 
+k config view --kubeconfig=my-custom-config
+k config use-context prod-user@production
 k config -h
 ```
 
-### Api Groups 
+### API Groups
 
-- kube-proxy 
-    enable connectivity between pods and services across different nodes in the cluster. 
+| Tool | What it is |
+| :--- | :--- |
+| `kube-proxy` | Enables connectivity between pods and services across the nodes in the cluster |
+| `kubectl proxy` | HTTP proxy service created by the kubectl utility to access the kube-apiserver |
 
-- kubectl proxy 
-    http proxy service created by kubectl utiity to access the kube-apiserver 
+### Authorization
 
+| Mode | Description |
+| :--- | :--- |
+| **Node** | Node authorizer for kubelets (part of the `system:nodes` group) |
+| **ABAC** | Attribute-based access control: associates a user with a set of permissions through a policy file |
+| **RBAC** | Role-based access control: create a role with permissions and associate users with it. The standard approach |
+| **Webhook** | Delegates the decision to an external service |
+| **AlwaysAllow** / **AlwaysDeny** | Allows or denies every request |
 
-### Authorization 
-
-- node authorizer: part of the system:nodes required for a kubelet 
-- ABAC: attribure base access control 
-    asosiates a user with a set a permisstions with a policy file 
-- RBAC: role based access control 
-    role with some permitions and asociated the developers to that role 
-    more standar approche 
-- webhook 
-
-alwaysallow
-alwaysdeny
-
-```
+```bash
 --authorization-mode=Node,RBAC,Webhook
 ```
 
-- Role based access control (RBAC)
+### Role-Based Access Control
 
-```
+**Role**
+
+```yaml
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
-metadata: 
+metadata:
     name: developer
-rules: 
+rules:
 - apiGroups: [""]
   resources: ["pods"]
   verbs: ["get","list","create","update","delete"]
 - apiGroups: [""]
-  resources: ["ConfigMap"]
+  resources: ["configmaps"]
   verbs: ["create"]
 ```
 
-```
+**RoleBinding**
+
+```yaml
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
-metadata: 
+metadata:
     name: devuser-developer-binding
-subjects: 
+subjects:
 - kind: User
   name: dev-user
   apiGroup: rbac.authorization.k8s.io
@@ -1458,98 +1453,45 @@ roleRef:
   apiGroup: rbac.authorization.k8s.io
 ```
 
-```
+```bash
 k get roles
-
 k get rolebindings
-
-k describe role developer 
-
+k describe role developer
 k describe rolebinding devuser-developer-binding
+```
 
+**Check access**
 
-k auth can-i create deployments 
-
+```bash
+k auth can-i create deployments
 k auth can-i delete nodes
-
 k auth can-i create deployments --as dev-user
-
 k auth can-i create pods --as dev-user
-
 k auth can-i create pods --as dev-user --namespace test
 ```
 
+**Access to specific pods only**
 
-access to a spesific pods
-
-```
+```yaml
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
     name: developer
-roles: 
+rules:
     - apiGroups: [""]
       resources: ["pods"]
       verbs: ["get","create","delete"]
-      resourceName: ["blue","orange"]
+      resourceNames: ["blue","orange"]
 ```
 
+#### Lab: give `dev-user` access to the `blue-app` pod in namespace `blue`
 
-apiVersion: rbac.authorization.k8s.io/v1
-kind: Role
-metadata: 
-    name: developer
-rules: 
-- apiGroups: [""]
-  resources: ["pods"]
-  verbs: ["get","list","create","delete"]
-
-
-
-apiVersion: rbac.authorization.k8s.io/v1
-kind: RoleBinding
-metadata: 
-    name: devuser-developer-binding
-subjects: 
-- kind: User
-  name: dev-user
-  apiGroup: rbac.authorization.k8s.io
-roleRef:
-  kind: Role
-  name: developer
-  apiGroup: rbac.authorization.k8s.io
-
-
-
-
-apiVersion: rbac.authorization.k8s.io/v1
-kind: RoleBinding
-metadata:
-  creationTimestamp: "2026-10-13T05:04:13Z"
-  name: dev-user-binding
-  namespace: blue
-  resourceVersion: "1579"
-  uid: cb5d11f8-0cc1-4d3c-bedb-c0e179ea04fe
-roleRef:
-  apiGroup: rbac.authorization.k8s.io
-  kind: Role
-  name: developer
-subjects:
-- apiGroup: rbac.authorization.k8s.io
-  kind: User
-  name: dev-user
-
-
-
-#
+```yaml
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
-  creationTimestamp: "2026-10-13T05:04:13Z"
   name: developer
   namespace: blue
-  resourceVersion: "1578"
-  uid: ae737765-226c-44c7-8e50-a366fddad6c0
 rules:
 - apiGroups:
   - ""
@@ -1562,27 +1504,43 @@ rules:
   - watch
   - create
   - delete
-
-
-### cluster role 
-
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: dev-user-binding
+  namespace: blue
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: developer
+subjects:
+- apiGroup: rbac.authorization.k8s.io
+  kind: User
+  name: dev-user
 ```
+
+### Cluster Roles
+
+For cluster-scoped resources such as nodes.
+
+```yaml
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
-metadata: 
+metadata:
     name: cluster-administrator
-rules: 
+rules:
 - apiGroups: [""]
   resources: ["nodes"]
   verbs: ["get","list","create","update","delete"]
 ```
 
-```
+```yaml
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
-metadata: 
+metadata:
     name: cluster-admin-role-binding
-subjects: 
+subjects:
 - kind: User
   name: cluster-admin
   apiGroup: rbac.authorization.k8s.io
@@ -1592,84 +1550,70 @@ roleRef:
   apiGroup: rbac.authorization.k8s.io
 ```
 
+### Service Accounts
 
-### service account
-service account
-
-```
+```bash
 k get serviceaccount
-
-k describe serviceaccount default 
-
-k describe pod my-kubernates-dashboard
-
-
+k describe serviceaccount default
+k describe pod my-kubernetes-dashboard
 ```
 
+The service account token is mounted as a **projected volume**: a dynamic directory created automatically inside the pod, at `/var/run/secrets/kubernetes.io/serviceaccount`.
 
-projected volum: dinamic directory created inside the pod, created automaticlly 
-
-mounted in: /var/run/secrets/kubernetes.io/serviceaccount 
-
-```
-~> k exec -it my-kubernates-dashboard ls /var/run/secrets/kubernetes.io/serviceaccount
-
-ca.crt namespace token 
+```console
+~> k exec -it my-kubernetes-dashboard -- ls /var/run/secrets/kubernetes.io/serviceaccount
+ca.crt  namespace  token
 ```
 
-costume service account: 
+#### Custom service account
 
-cli:
-```
+CLI:
+
+```bash
 k create serviceaccount dashboard-sa
 ```
 
-file: 
-```
-apiVersion:v1
+File:
+
+```yaml
+apiVersion: v1
 kind: ServiceAccount
-metadata: 
+metadata:
   name: dashboard-sa
   namespace: default
-automountServiceAccountToken: false (remove the automounted sa token)
+automountServiceAccountToken: false   # don't auto-mount the SA token
 ```
 
-asociated the service account to the pod
+Associate the service account with the pod:
 
-```
+```yaml
 apiVersion: v1
 kind: Pod
-metadata: 
-  name: my-kubernates-dashboard
-spec: 
-  containers: 
-    - name: my-kuberntes-dashboard
-      image: my-kubernates-dashboard
+metadata:
+  name: my-kubernetes-dashboard
+spec:
+  containers:
+    - name: my-kubernetes-dashboard
+      image: my-kubernetes-dashboard
   serviceAccountName: dashboard-sa
-  automountServiceAccountToken: false (remove the automounted sa token)
+  automountServiceAccountToken: false   # don't auto-mount the SA token
 ```
 
-```
-k deescribe pod my-kubernates-dashboard
-
-
-k exec -it my-kubernates-dashboard ls /var/run...
+```bash
+k describe pod my-kubernetes-dashboard
+k exec -it my-kubernetes-dashboard -- ls /var/run/secrets/kubernetes.io/serviceaccount
 ```
 
+#### Tokens
 
-```
+```bash
 k create token dashboard-sa
-
 k create token dashboard-sa --duration 2h
-
-k create serviceaccount dashboard-sa
-
 ```
 
+Deployment configured to use a projected volume:
 
-deployment configured to use a projected volume: 
-
-```
+```yaml
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -1709,648 +1653,613 @@ spec:
               path: token
 ```
 
-
-```
+```bash
 kubectl exec $(kubectl get pod -l name=web-dashboard -o jsonpath='{.items[0].metadata.name}') -- ls /var/run/secrets/kubernetes.io/serviceaccount/
 ```
 
-### Image
+### Image Security
 
-to have access to the repositories we create a secretes
+To pull from a private registry, create a `docker-registry` secret:
 
+```bash
+k create secret docker-registry private-reg-cred \
+  --docker-server=myprivateregistry.com:5000 \
+  --docker-username=dock_user \
+  --docker-password=dock_password \
+  --docker-email=registry-user@org.com
 ```
-k create secret docker-registry private-reg-cred --docker-server=myprivateregistry.com:5000 --docker-username=dock_user --docker-password=dock_password --docker-email=registry-user@org.com
-```
 
+Then pass that secret to the pod definition:
 
-then we pass that secret to the pod definition 
-
-```
+```yaml
 apiVersion: v1
 kind: Pod
-metadata: 
+metadata:
   name: nginx-pod
-spec: 
-  containers: 
+spec:
+  containers:
   - name: nginx
     image: private-registry.io/apps/internal-app
-  imagePullSecrets: 
-  - name: regcred
+  imagePullSecrets:
+  - name: private-reg-cred
 ```
 
-### Traffic 
+### Network Policies
 
-Ingress: recibe repond 
+| Traffic | Direction |
+| :--- | :--- |
+| **Ingress** | Incoming: requests received |
+| **Egress** | Outgoing: requests sent |
 
-Egress: deliver reponde 
+A network policy only applies to the pods it selects.
 
-### Network security 
-
--> network policy 
-the policy is only applied to the pod where it was set it up 
-
-```
+```yaml
 apiVersion: networking.k8s.io/v1
-kind: NetworkPolicy 
-metadata: 
+kind: NetworkPolicy
+metadata:
   name: db-policy
-spec: 
-  podSelector: 
-    matchLabels: 
-        role: db
-    policyTypes: 
-    - Ingress
-    ingress: 
-    - from: 
-    - podsSelector: 
-        matchLabels: 
-        name: api-pod
-    - namespaceSelector: 
-        matchLabels: 
-         kubernetes.io/metadata.name: prod
-    - ipBlock: 
-      cidr: 192.168.5.10/32
-    ports: 
-    - protocol: TCP 
-        PORT: 3306
-```
-```
-k create -f policy-definition.yaml 
+spec:
+  podSelector:
+    matchLabels:
+      role: db
+  policyTypes:
+  - Ingress
+  ingress:
+  - from:
+    - podSelector:
+        matchLabels:
+          name: api-pod
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: prod
+    - ipBlock:
+        cidr: 192.168.5.10/32
+    ports:
+    - protocol: TCP
+      port: 3306
 ```
 
+> [!TIP]
+> Each `-` item under `from` is a separate rule (**OR**). To require **both** a pod label and a namespace (**AND**), put `podSelector` and `namespaceSelector` in the same item: no `-` before `namespaceSelector`.
 
+```bash
+k create -f policy-definition.yaml
 ```
+
+Ingress and egress:
+
+```yaml
 apiVersion: networking.k8s.io/v1
-kind: NetworkPolicy 
-metadata: 
+kind: NetworkPolicy
+metadata:
   name: db-policy
-spec: 
-  podSelector: 
-    matchLabels: 
-        role: db
-    policyTypes: 
-    - Ingress
-    - Egress 
-    ingress: 
-    - from: 
-    - podsSelector: 
-        matchLabels: 
-        name: api-pod
-    ports: 
-    - protocol: TCP 
-        PORT: 3306
-  egress: 
-  - to: 
-    - ipBlock: 
-      cidr: 192.168.5.10/32
-    ports: 
-    - protocol: TCP 
+spec:
+  podSelector:
+    matchLabels:
+      role: db
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  - from:
+    - podSelector:
+        matchLabels:
+          name: api-pod
+    ports:
+    - protocol: TCP
+      port: 3306
+  egress:
+  - to:
+    - ipBlock:
+        cidr: 192.168.5.10/32
+    ports:
+    - protocol: TCP
       port: 80
 ```
 
-```
+```bash
 kubectl get netpol
 ```
 
+<p align="right"><a href="#top">⬆ back to top</a></p>
 
-### Custom Resource Definition 
+---
 
-It is an extension of the Kubernetes API that is not necessarily available in a default Kubernetes installation.
+## 7. Extending Kubernetes
 
-- custom resource
-- custom controler 
+### Custom Resource Definitions
 
+A CRD extends the Kubernetes API with resources that aren't available in a default installation. You need two pieces:
 
-custom resource definiton (CRD)
+- **Custom resource**: defined by a CRD
+- **Custom controller**: code that watches for changes to the custom resource and acts on them
 
-```
-apiVersion: apiextension.k8.io/v1
-kind: CustomResourceDefinition 
-metada: 
-  name: flighttickets.flights.com 
-spec: 
-    scop: Namespace 
-    group: flights.com 
-    names: 
-      kind: FlighTicket
-      singular: flightticket
-      plural: flighttickets
-      shortNames:
-        -ft
-      version: 
-         - name: v1
-           served: true
-           storage: true
-           schema: 
-             openAPIV3Schema: 
+```yaml
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: flighttickets.flights.com
+spec:
+  scope: Namespaced
+  group: flights.com
+  names:
+    kind: FlightTicket
+    singular: flightticket
+    plural: flighttickets
+    shortNames:
+      - ft
+  versions:
+    - name: v1
+      served: true
+      storage: true
+      schema:
+        openAPIV3Schema:
+          type: object
+          properties:
+            spec:
               type: object
-              properties: 
-                spec: 
-                  tyep: objec
-                  properties: 
-                    from: 
-                      type: string 
-                    to: 
-                      type: string 
-                    number: 
-                      type: integer
-                      minimum: 1
-                      maximum: 10
+              properties:
+                from:
+                  type: string
+                to:
+                  type: string
+                number:
+                  type: integer
+                  minimum: 1
+                  maximum: 10
 ```
 
-- custom controller 
+### Operator Framework
 
-writh some code to create the controller to look for changes in etcd to monitor the CRD 
+> 🚧 *To do.*
 
-### operator fremwork 
+<p align="right"><a href="#top">⬆ back to top</a></p>
 
-file system: 
+---
 
-docker store data info by defalut here: 
+## 8. Storage
 
-```
-/var/lib/docker 
-    /aufs
-    /containers
-    /image
-    /volumes
-```
+### Docker Storage
 
-how docker stores the info? 
+By default, Docker stores its data here:
 
-```
-docker build Dockerfile -f mmushad/my-custom-app
+```text
+/var/lib/docker
+├── aufs
+├── containers
+├── image
+└── volumes
 ```
 
-1: base ubunto layer 
-2: changes in apt packages
-3: change sin pip packages
-4: source code 
-5: update entrypoint 
+#### Image layers
 
-when you update a docker images, docker use the cache, and bc of that is faster 
-
-- volumes
-
+```bash
+docker build Dockerfile -t mmushad/my-custom-app
 ```
+
+| Layer | Content |
+| :---: | :--- |
+| 1 | Base Ubuntu layer |
+| 2 | Changes in apt packages |
+| 3 | Changes in pip packages |
+| 4 | Source code |
+| 5 | Update entrypoint |
+
+> [!TIP]
+> When you rebuild an image, Docker reuses the cached layers that didn't change, so the build is faster.
+
+#### Volumes
+
+```bash
 docker volume create data_volume
 ```
 
-var/lib/docker
-   /volumnes
-   /data_volume
-
-- volume mount 
-```
-docker run -v data_volume:/var/lib/mysql mysql 
+```text
+/var/lib/docker
+└── volumes
+    └── data_volume
 ```
 
-- bind mount 
-to change the dafualt dir volume in the image: 
+| Mount type | Source | Command |
+| :--- | :--- | :--- |
+| **Volume mount** | A volume in `/var/lib/docker/volumes` | `docker run -v data_volume:/var/lib/mysql mysql` |
+| **Bind mount** | Any directory on the host | `docker run -v /data/mysql:/var/lib/mysql mysql` |
 
-```
-docker run -v /data/mysql:/va/lib/mysql mysql 
-```
+The newer `--mount` syntax:
 
-new way 
-
-```
-docker run /
-  --mount type=bind,source=/data/mysql,targer=/var/lib/mysql mysql 
+```bash
+docker run \
+  --mount type=bind,source=/data/mysql,target=/var/lib/mysql mysql
 ```
 
--> stores drivers
-- AUFS
-- ZFS
-- BTRFS
-- Device Mapper
-- Overlay 
-- Overlay2
+**Storage drivers:** AUFS · ZFS · BTRFS · Device Mapper · Overlay · Overlay2
 
-### Docker volumes
+### Docker Volume Drivers
 
-Volumnes are not handled by storage drivers, volumes are handel by volume plugin 
+Volumes are not handled by storage drivers. They're handled by **volume driver plugins**.
 
-```
+```bash
 docker run -it \
-  --name mysql 
-  --volume-driver rexay/ebs
-  --mount src=ebs-vol,target=/var/lib/mysql
-  mysql 
+  --name mysql \
+  --volume-driver rexray/ebs \
+  --mount src=ebs-vol,target=/var/lib/mysql \
+  mysql
 ```
 
 ### Container Storage Interface
 
-container networking interface = CNI 
-container storage interface = CSI 
+| Interface | Stands for |
+| :--- | :--- |
+| CNI | Container Network Interface |
+| CSI | Container Storage Interface |
 
+Example: installing a CSI driver with Helm:
 
-
+```bash
 helm install topolvm topolvm --version 17.2.0 --namespace topolvm-system --create-namespace --values <file>
-
-
-### volumes in k8
-
-volume to the pod to remian the data even if the pod is deleted
-
-storage in a host's directory 
 ```
+
+### Volumes
+
+A volume keeps the data even if the pod is deleted. Here it's stored in a directory on the host:
+
+```yaml
 apiVersion: v1
 kind: Pod
-metadata: 
-  name: random-number-generator 
-spec: 
-  containers: 
+metadata:
+  name: random-number-generator
+spec:
+  containers:
   - image: alpine
-    name: alpine 
+    name: alpine
     command: ["/bin/sh","-c"]
-    args: ["suf -i 0-100 -n 1 >> /opt/number.out;"]
-    volumeMounts: 
+    args: ["shuf -i 0-100 -n 1 >> /opt/number.out;"]
+    volumeMounts:
     - mountPath: /opt
       name: data-volume
-  volumes: 
+  volumes:
   - name: data-volume
-    hostPath: 
+    hostPath:
       path: /data
-      type: Directory 
+      type: Directory
 ```
 
+### Persistent Volumes
 
-### Persistent volumes 
+| Object | Created by |
+| :--- | :--- |
+| **PersistentVolume (PV)** | The admin |
+| **PersistentVolumeClaim (PVC)** | The user, to use the storage |
 
-```
+```yaml
 apiVersion: v1
 kind: PersistentVolume
-metadata: 
+metadata:
   name: pv-vol1
-spec: 
-  accessModes: 
+spec:
+  accessModes:
   - ReadWriteOnce
-  cpacity: 
+  capacity:
     storage: 1Gi
-  awsElasticBlockStore: 
+  awsElasticBlockStore:
     volumeID: <volume-id>
     fsType: ext4
 ```
 
-```
+```bash
 k create -f pv-definition.yaml
-
 k get persistentvolume
 ```
 
-peristen volume: admin creates it
-persistent colume claims: the user creates it to use the storage
+**Reclaim policy** (`persistentVolumeReclaimPolicy`): what happens to the PV when its claim is deleted.
 
+| Policy | Effect |
+| :--- | :--- |
+| `Retain` | Keeps the PV and its data |
+| `Delete` | Deletes the PV |
 
+### Persistent Volume Claims
 
-```
+```yaml
 apiVersion: v1
 kind: PersistentVolumeClaim
-metadata: 
-  name: myclaim 
-spec: 
-  accessModes: 
+metadata:
+  name: myclaim
+spec:
+  accessModes:
   - ReadWriteOnce
-  resources: 
-    requests: 
-      storae: 500Mi
+  resources:
+    requests:
+      storage: 500Mi
 ```
 
-```
-apiVersion: v1
-kind: PersistentColume 
-metadata: 
-  name: pv-vol1
-spec: 
-  accessModes: 
-  - ReadWriteOnce
-  capacity: 
-    storage: 1Gi
-awsElasticBlockStore: 
-  volumeID: <volume-id>
-  fsType: ext4
-```
-
-
-```
+```bash
 k get persistentvolumeclaim
+k delete persistentvolumeclaim myclaim
 ```
 
-```
-k delete peristentvolumeclaim myclaim
-```
+Once the PVC exists, use it in a pod by putting the claim name under `persistentVolumeClaim` in the `volumes` section:
 
-
-persistentVolumeReclaimPolicy: Retain 
-
-Retain: keeps pv and it's data
-delte: deletes pv 
-
-Once you create a PVC use it in a Pod definition file by specifying the PVC Claim name under persistentVolumeClaim section in the volumes section like this:
-
-
-```
+```yaml
 apiVersion: v1
 kind: Pod
 metadata:
- name: mypod
-
+  name: mypod
 spec:
- containers:
-  - name: myfrontend
-   image: nginx
-   volumeMounts:
-   - mountPath: "/var/www/html"
-    name: mypd
-
- volumes:
-  - name: mypd
-   persistentVolumeClaim:
-    claimName: myclaim
+  containers:
+    - name: myfrontend
+      image: nginx
+      volumeMounts:
+      - mountPath: "/var/www/html"
+        name: mypd
+  volumes:
+    - name: mypd
+      persistentVolumeClaim:
+        claimName: myclaim
 ```
 
+> [!TIP]
+> A PVC only binds to a PV with matching access modes and enough capacity.
 
-```
+#### Lab: move a pod's logs from `hostPath` to a PVC
+
+**1. Pod writing logs to a host directory**
+
+```yaml
 apiVersion: v1
 kind: Pod
 metadata:
- name: webapp
-
+  name: webapp
 spec:
- containers:
-  - name: event-simulator
-   image: kodekloud/event-simulator
-   volumeMounts:
-   - mountPath: /log
-    name: log-volume
-
- volumes:
-  - name: log-volume
-   persistentVolumeClaim:
-    path: /var/log/webapp
-    type: Directory
+  containers:
+    - name: event-simulator
+      image: kodekloud/event-simulator
+      volumeMounts:
+      - mountPath: /log
+        name: log-volume
+  volumes:
+    - name: log-volume
+      hostPath:
+        path: /var/log/webapp
+        type: Directory
 ```
 
+**2. PersistentVolume**
 
-
-```
+```yaml
 apiVersion: v1
 kind: PersistentVolume
 metadata:
   name: pv-log
-spec: 
+spec:
   persistentVolumeReclaimPolicy: Retain
-  accessModes: 
+  accessModes:
     - ReadWriteMany
-  capacity: 
+  capacity:
     storage: 100Mi
-  hostPath: 
+  hostPath:
     path: /pv/log
 ```
 
-```
+**3. PersistentVolumeClaim**
+
+```yaml
 apiVersion: v1
 kind: PersistentVolumeClaim
-metadata: 
-  name: claim-log-1 
-spec: 
-  accessModes: 
+metadata:
+  name: claim-log-1
+spec:
+  accessModes:
   - ReadWriteOnce
-  resources: 
-    requests: 
+  resources:
+    requests:
       storage: 50Mi
 ```
 
+**4. Point the pod's volume at the claim**
 
- volumes:
-  - name: webapp
-   persistentVolumeClaim:
-    claimName: claim-log-1
-
-### Storage Class
-
-- Static Provisioning: when you provition the volume manually 
-
-- Dynamic provisioning: 
-  with storage class 
-
-
+```yaml
+  volumes:
+    - name: log-volume
+      persistentVolumeClaim:
+        claimName: claim-log-1
 ```
+
+### Storage Classes
+
+| Provisioning | How |
+| :--- | :--- |
+| **Static** | You provision the volume manually |
+| **Dynamic** | A StorageClass creates the PV automatically |
+
+```yaml
 apiVersion: storage.k8s.io/v1
 kind: StorageClass
-metadata: 
+metadata:
   name: google-storage
- provisioner: kubernetes.io/gce-pd
+provisioner: kubernetes.io/gce-pd
 ```
 
-```
+```yaml
 apiVersion: v1
-kind: PersistentVolumeClaim 
-metadata: 
-  name: myclaim 
-spec: 
+kind: PersistentVolumeClaim
+metadata:
+  name: myclaim
+spec:
   accessModes:
   - ReadWriteOnce
   storageClassName: google-storage
-  resources: 
-   requests: 
+  resources:
+   requests:
      storage: 500Mi
 ```
-```
+
+```yaml
 apiVersion: v1
 kind: Pod
-metadata: 
-  name: random-number-generator 
-spec: 
-  containers: 
+metadata:
+  name: random-number-generator
+spec:
+  containers:
   - image: alpine
-    name: alpine 
+    name: alpine
     command: ["/bin/sh","-c"]
-    args: ["suf -i 0-100 -n 1 >> /opt/number.out;"]
-    volumeMounts: 
+    args: ["shuf -i 0-100 -n 1 >> /opt/number.out;"]
+    volumeMounts:
     - mountPath: /opt
       name: data-volume
-  volumes: 
+  volumes:
   - name: data-volume
-    persistentVolumeClaim: 
-      claimName: myclaim 
+    persistentVolumeClaim:
+      claimName: myclaim
 ```
 
-the pv is created automatilly by the storage class
+The PV is created automatically by the storage class.
 
-```
+#### Example: `local-path`
+
+```yaml
 apiVersion: v1
-kind: PersistentVolumeClaim 
-metadata: 
-  name: local-pvc 
-spec: 
+kind: PersistentVolumeClaim
+metadata:
+  name: local-pvc
+spec:
   accessModes:
   - ReadWriteOnce
   storageClassName: local-path
-  resources: 
-   requests: 
+  resources:
+   requests:
      storage: 500Mi
 ```
 
-```
+```yaml
 apiVersion: v1
 kind: Pod
 metadata:
   name: nginx
 spec:
-  containers: 
+  containers:
   - image: nginx:alpine
     name: nginx
-    volumeMounts: 
+    volumeMounts:
     - mountPath: /var/www/html
       name: data-volume
-  volumes: 
+  volumes:
   - name: data-volume
-    persistentVolumeClaim: 
+    persistentVolumeClaim:
       claimName: local-pvc
 ```
 
-```
+#### Example: delayed binding
+
+With `WaitForFirstConsumer`, the volume isn't bound until a pod uses the claim.
+
+```yaml
 apiVersion: storage.k8s.io/v1
 kind: StorageClass
-metadata: 
+metadata:
   name: delayed-volume-sc
 provisioner: kubernetes.io/no-provisioner
 volumeBindingMode: WaitForFirstConsumer
 ```
 
-### Networking 
+<p align="right"><a href="#top">⬆ back to top</a></p>
 
-- networking prerequisites 
+---
 
-```
-ip link 
+## 9. Networking
 
-ip addr
+### Networking Prerequisites
 
-ip addr add 192.168.1.10/24 dev eth0
-
-ip route
-
-route 
-
-ip route add 192.168.1.0/24 via 192.168.2.1
-
-cat /proc/sys/net/ipv4/ip_forward
+```bash
+ip link                                          # list interfaces
+ip addr                                          # list IP addresses
+ip addr add 192.168.1.10/24 dev eth0             # assign an IP to an interface
+ip route                                         # show the routing table (or: route)
+ip route add 192.168.1.0/24 via 192.168.2.1      # add a route
+cat /proc/sys/net/ipv4/ip_forward                # 1 = IP forwarding enabled
 ```
 
-### Pod networing 
+### Pod Networking
 
-every pod should have an ip adress
-every pod should be able to communicate with every other pods in the same node
-every pod shoul be able to communicate with wvery other pod on other nodes without NAT
+The Kubernetes networking model:
 
-```
-ip link add v-net-0 type brigde 
+- ✅ Every pod gets its own IP address.
+- ✅ Every pod can reach every other pod on the same node.
+- ✅ Every pod can reach every other pod on other nodes **without NAT**.
 
-ip addr add 192.168.15.5/24 dev v-net-0 
+Wiring a network namespace to a bridge by hand:
 
-ip link set veth-red netns red 
+```bash
+# 1. Create a bridge on the host and bring it up
+ip link add v-net-0 type bridge
+ip link set dev v-net-0 up
+ip addr add 192.168.15.5/24 dev v-net-0
 
-ip -n red link set veth-red up 
-
-ip netns exec clue ip route add 192.168.1.0/24 via 192.168.15.5 
-
-ip link set dev v-net-0 up 
-
+# 2. Create a veth pair (a virtual cable) and plug each end in
 ip link add veth-red type veth peer name veth-red-br
-
-ip -n red addr add 192.168.15.1 dev veth-red
-
+ip link set veth-red netns red
 ip link set veth-red-br master v-net-0
 
-iptables -t nat -A POSTROUTING -s 192.168.15.0/24 -j MASQUERADE 
+# 3. Give the namespace end an IP and bring it up
+ip -n red addr add 192.168.15.1 dev veth-red
+ip -n red link set veth-red up
+
+# 4. Route to other networks through the bridge, and NAT outgoing traffic
+ip netns exec blue ip route add 192.168.1.0/24 via 192.168.15.5
+iptables -t nat -A POSTROUTING -s 192.168.15.0/24 -j MASQUERADE
 ```
 
-cin automate the routing using an script with an add section and a delete section 
+> [!TIP]
+> You can automate this with a script that has an **ADD** section and a **DELETE** section. That's what a CNI plugin is.
 
+### CNI in Kubernetes
 
-### CNI in k8 
+The **container runtime** creates the containers and calls the CNI plugin to connect them to the network.
 
-conteiner run time: responsible of create components 
+| What | Where |
+| :--- | :--- |
+| CNI plugin binaries | `/opt/cni/bin` |
+| CNI configuration | `/etc/cni/net.d` (e.g., `bridge.conflist`, `flannel.conflist`) |
 
-the cni is installed in: /opt/cni/bin 
+### IP Address Management
 
-but the cni plugins are in: /etc/cni/net.d
-            - bridge.conflist
-            - flannel.conflist
+> 🚧 *To do.*
 
+### Service Networking
 
-#### IPM - IP addres management 
+Services are a **cluster-wide** concept: they exist on all the nodes in the cluster.
 
+```bash
+k get pods -o wide
+k get service
 
-### Service Networking 
-
-services are a cluster wide concept 
-it exist in all the nodes in a cluster 
-
-
-```
-k get pods -o wide 
-
-k get service 
-
-kube-api-server --service-cluster-ip-range ipNet (Default: 10.0.0.0/24)
-
+kube-api-server --service-cluster-ip-range ipNet   # default: 10.0.0.0/24
 ps aux | grep kube-api-server
 ```
 
+### CoreDNS in Kubernetes
 
+CoreDNS is deployed as pods. The kubelet automatically configures each pod to resolve names through CoreDNS by writing its `/etc/resolv.conf`:
 
-### Core Dns in kubernetes
-
-core dns is deployed in pods 
-
-kubelete manage to created autoamtilly the reoslution of core dns
-
-to do that it create the file: 
-
-/etc/resolv.conf
+```text
 nameserver      10.96.0.10
+```
 
+The address comes from the kubelet config:
 
-cat /var/lib/kubelet/config.yaml 
+```console
+$ cat /var/lib/kubelet/config.yaml
 ...
 clusterDNS:
 - 10.96.0.10
 clusterDomain: cluster.local
 ...
-
-
-
-
-
-cambiar infra solo cuando hay cambios de la infra
-
-si cdkpuede desplegar al mismo tiempo, pasar el pipeline de pasar cloud 2026 y que corrarn en paralelo
-
-el cdk no porque se necesita la infra antes 
-
-infra y luego las tres al mismo tiempo
-
-que deployee la app que se haya cambiado 
-
-no se tiene que mandar todo siempre 
-
-
-so we need to find out a way to deploy the infra and then the other 3 things in paraller , we do not need to change everthing always
-
-cambiar infra solo cuando hay cambios de la infra
-
-si cdkpuede desplegar al mismo tiempo, like: https://app.harness.io/ng/account/avaa2RG-SuCKMBrVkODAgA/module/ci/orgs/InStrideHQ/projects/SRE/pipelines/Cloud_22026_Promotion_Deploy_Code/pipeline-studio/?repoName=harness-run&connectorRef=account.instride_dev_github_connector&storeType=REMOTE&branch=main
-
-the harness triggers are pretty habilidozos so check that 
-
+```
 
 ### Ingress
 
-```
+```yaml
 ---
 apiVersion: networking.k8s.io/v1
 kind: Ingress
@@ -2368,43 +2277,44 @@ spec:
         pathType: Prefix
         backend:
           service:
-           name: pay-service
-           port:
-            number: 8282
-
+            name: pay-service
+            port:
+              number: 8282
 ```
 
-### Getway 
+### Gateway API
 
-- ingress
-- load balancing
-- service mesh API's
+Covers **ingress**, **load balancing** and **service mesh** APIs, with one resource per role:
 
----
+| Role | Resource |
+| :--- | :--- |
+| Infrastructure provider | `GatewayClass` |
+| Cluster operator | `Gateway` |
+| Application developer | `HTTPRoute`, `TCPRoute` |
 
-infra providers: gatway class
+**GatewayClass** (infrastructure provider)
 
-```
+```yaml
 apiVersion: gateway.networking.k8s.io/v1
 kind: GatewayClass
-metadata: 
+metadata:
   name: nginx
-spec: 
-  controllerName: example.com/gatewary-controller
+spec:
+  controllerName: example.com/gateway-controller
 ```
 
-cluster operators: gateway
+**Gateway** (cluster operator)
 
-```
+```yaml
 apiVersion: gateway.networking.k8s.io/v1
 kind: Gateway
-metadata: 
+metadata:
   name: nginx-gateway
   namespace: nginx-gateway
-spec: 
+spec:
   gatewayClassName: nginx
-  listerners: 
-  - name: http 
+  listeners:
+  - name: http
     protocol: HTTP
     port: 80
     allowedRoutes:
@@ -2412,149 +2322,138 @@ spec:
         from: All
 ```
 
-app develper: HTTPRoute TCPRoute
+**HTTPRoute** (application developer)
 
-```
+```yaml
 apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
-metadata: 
-  name: exmaple-httproute
-spec: 
-  parentRefs: 
-  - name: exmaple-gateway
-  hostnames: 
+metadata:
+  name: example-httproute
+spec:
+  parentRefs:
+  - name: example-gateway
+  hostnames:
   - "www.example.com"
-  rules: 
-  - matches: 
-    - path: 
+  rules:
+  - matches:
+    - path:
         type: PathPrefix
         value: /login
-    backendRefs: 
+    backendRefs:
     - name: example-svc
       port: 8080
 ```
 
-### Kubeadm 
+<p align="right"><a href="#top">⬆ back to top</a></p>
 
-kubeadm: 
+---
 
-1 multiples sistems: 1 master 2 worker nodes
-2 kubeadm tool 
-3 inicialates the master server
-4 pod network
-5 join nodes to the master node 
+## 10. Cluster Installation
 
+### Kubeadm
 
+Steps to set up a cluster with kubeadm:
 
-### Helm 
+1. Provision multiple systems: 1 master and 2 worker nodes.
+2. Install the kubeadm tool.
+3. Initialize the master server.
+4. Set up the pod network.
+5. Join the worker nodes to the master node.
 
-package manager of k8
+<p align="right"><a href="#top">⬆ back to top</a></p>
 
-see the whole think a packages 
+---
 
-```
+## 11. Helm
+
+### Helm Basics
+
+Helm is the **package manager for Kubernetes**: it treats all the objects of an app as one package.
+
+```bash
 helm install wordpress
 helm upgrade wordpress
-helm hollback wordpress
+helm rollback wordpress
 helm uninstall wordpress
 ```
 
-installing helm 
+Install Helm:
 
+```bash
 sudo snap install helm --classic
-  
-snapshot fo the app
-meta data about data: save the matadata as k8 secrets 
-
-templatidng 
-
-
-### helm chart
-
-helm chart structure
-
-```
-- hello-world-chart
-  /templates #templates directory 
-  values.yaml #configurable values
-  chart.yaml #chart info
-  LINCENSE #chart license
-  README.md #readme file
-  /charts #dependency charts
 ```
 
+- **Revisions**: each change is a snapshot of the app.
+- **Metadata**: Helm saves the release metadata as Kubernetes secrets.
+- **Templating**: values are injected into the templates.
+
+### Helm Charts
+
+Chart structure:
+
+```text
+hello-world-chart/
+├── templates/     # templates directory
+├── values.yaml    # configurable values
+├── Chart.yaml     # chart info
+├── LICENSE        # chart license
+├── README.md      # readme file
+└── charts/        # dependency charts
 ```
+
+```bash
 helm --help
-
-helm search wordpress
-
 helm search hub wordpress
 ```
 
-```
-helm repo add bitnami https://charts.bitnami.com/bitnami 
-
+```bash
+helm repo add bitnami https://charts.bitnami.com/bitnami
 helm repo remove hashicorp
-
-helm install my-release bitnami/wordpress
-
-helm list
-
-helm uninstall my-release
-
-helm repo
-helm repo list 
+helm repo list
 helm repo update
 
+helm install my-release bitnami/wordpress
+helm list
+helm uninstall my-release
 ```
 
+### Customizing Chart Parameters
 
-### customizing chart parameters
+Download the chart, edit it, then install from the local directory:
 
-```
-helm pull b itnami/wordpress
+```bash
+helm pull bitnami/wordpress
+helm pull --untar bitnami/wordpress
 
-helm pull -untar bitnami/wordpress
-
-
-ls wordpress 
-....
+ls wordpress
 
 helm install my-release ./wordpress
 ```
 
-### helm release
-```
-helm install my-site bitnami/wordpress
+### Helm Releases
 
+```bash
+helm install my-site bitnami/wordpress
 helm install nginx-release bitnami/nginx --version 7.1.0
 
 helm list
-
 helm history nginx-release
+helm rollback nginx-release 1
 
-helm rollback nfinx-release 1 
-
-helm upgrade wordpress-release bitnami/wordpress 
-
+helm upgrade wordpress-release bitnami/wordpress
 helm upgrade dazzling-web bitnami/nginx --version 18.3.6
-
 helm rollback dazzling-web
 ```
 
+<p align="right"><a href="#top">⬆ back to top</a></p>
 
+---
 
-primero hacer un pipeline que corramos por fuera, piensar en lo que la ai me ayuda 
+## 12. Kustomize
 
-si se cerea en el pipelne the release y no jala
+### Kustomization File
 
-correrlo en unpipeline fura 
-
-#### Kustomization 
-
-
-
-```
+```yaml
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 
@@ -2570,25 +2469,31 @@ resources:
   - nginx/nginx-service.yaml
 ```
 
-- patches json6902
+### Patches
 
-in line, it means saved in kustomization.yaml file:
-```
-patches: 
-  - target: 
-    kind: Deployment 
-    name: api-deployment 
+There are two ways to write a patch:
 
+| Type | Style |
+| :--- | :--- |
+| **JSON 6902** | A list of operations (`op`, `path`, `value`) on a `target` |
+| **Strategic merge** | A partial Kubernetes manifest that gets merged into the original |
+
+**JSON 6902, inline** in `kustomization.yaml`:
+
+```yaml
+patches:
+  - target:
+      kind: Deployment
+      name: api-deployment
     patch: |-
       - op: replace
         path: /metadata/name
         value: web-deployment
 ```
 
-or:
+In an overlay, `overlays/QA/kustomization.yaml`:
 
-overlays/QA/kustomization.yaml
-```
+```yaml
 patches:
   - target:
       kind: Deployment
@@ -2599,169 +2504,188 @@ patches:
         value: caddy
 ```
 
+```bash
 kubectl apply -k /root/code/k8s/overlays/QA
-
-separate file
 ```
-patches: 
+
+**In a separate file**
+
+```yaml
+patches:
   - path: replicas-patch.yaml
-    target: 
+    target:
       kind: Deployment
       name: nginx-deployment
 ```
 
-- stragic merge patch 
+**Strategic merge, inline**
 
-```
-patches: 
-  - patch: |- 
+```yaml
+patches:
+  - patch: |-
       apiVersion: apps/v1
       kind: Deployment
-      metadata: 
+      metadata:
         name: api-deployment
-      spec: 
+      spec:
         replicas: 5
 ```
 
-- praches dictionary 
+### Patching Dictionaries
 
-json 6902
+#### Replace a key
 
-```
-patches: 
-  - target: 
-    kind: Deployment
-    name: api-deploymment 
+JSON 6902:
+
+```yaml
+patches:
+  - target:
+      kind: Deployment
+      name: api-deployment
     patch: |-
-      - op: replace 
-        patch: 
-        /spec/template/metadata/labels/component
+      - op: replace
+        path: /spec/template/metadata/labels/component
         value: web
 ```
 
-strategic memrge patch 
+Strategic merge:
 
+```yaml
+patches:
+  - path: label-patch.yaml
 ```
-patches: 
-  - label-patch.yaml 
-```
-```
+
+```yaml
+# label-patch.yaml
 apiVersion: apps/v1
 kind: Deployment
-metadata: 
+metadata:
   name: api-deployment
-spec: 
-  template: 
-    metadata: 
-      labels:  
+spec:
+  template:
+    metadata:
+      labels:
         component: web
 ```
 
-- add json 6902
+#### Add a key
 
-```
-patches: 
-  - target: 
-    kind: Deployment
-    name: api-deployment 
+JSON 6902:
+
+```yaml
+patches:
+  - target:
+      kind: Deployment
+      name: api-deployment
     patch: |-
       - op: add
-      path: /spec/template/metadata/lavels/org
+        path: /spec/template/metadata/labels/org
         value: KodeKloud
 ```
 
-- strategic merge patch
+Strategic merge:
 
-strategic memrge patch 
+```yaml
+patches:
+  - path: label-patch.yaml
+```
 
-```
-patches: 
-  - label-patch.yaml 
-```
-```
+```yaml
+# label-patch.yaml
 apiVersion: apps/v1
 kind: Deployment
-metadata: 
+metadata:
   name: api-deployment
-spec: 
-  template: 
-    metadata: 
-      labels:  
+spec:
+  template:
+    metadata:
+      labels:
         org: kodekloud
 ```
 
-- list json6902
+### Patching Lists
 
-```
-patches: 
-  - target: 
-    kind: Deployment
-    name: api-deployment 
+#### Replace an item
+
+JSON 6902:
+
+```yaml
+patches:
+  - target:
+      kind: Deployment
+      name: api-deployment
     patch: |-
       - op: replace
-      path: /spec/template/spect/containers/0
-        value:  
+        path: /spec/template/spec/containers/0
+        value:
           name: haproxy
           image: haproxy
 ```
 
-```
-patches: 
-  - target: 
-    kind: Deployment
-    name: api-deployment 
+#### Add an item
+
+JSON 6902. The `-` at the end of the path appends the new item at the end of the list:
+
+```yaml
+patches:
+  - target:
+      kind: Deployment
+      name: api-deployment
     patch: |-
       - op: add
-      path: /spec/template/spect/containers/-
-        value:  
+        path: /spec/template/spec/containers/-
+        value:
           name: haproxy
           image: haproxy
 ```
 
-- = put the new at the end of the list 
+Strategic merge:
 
-- strategic merge patch
+```yaml
+patches:
+  - path: label-patch.yaml
+```
 
-strategic memrge patch 
-
-```
-patches: 
-  - label-patch.yaml 
-```
-```
+```yaml
+# label-patch.yaml
 apiVersion: apps/v1
 kind: Deployment
-metadata: 
+metadata:
   name: api-deployment
-spec: 
-  template: 
-    spect: 
-      containers: 
-        - name: haproxy 
+spec:
+  template:
+    spec:
+      containers:
+        - name: haproxy
           image: haproxy
 ```
-- strategic merge patch delete
+
+#### Delete an item
+
+Strategic merge:
+
+```yaml
+patches:
+  - path: label-patch.yaml
 ```
-patches: 
-  - label-patch.yaml 
-```
-```
+
+```yaml
+# label-patch.yaml
 apiVersion: apps/v1
 kind: Deployment
-metadata: 
+metadata:
   name: api-deployment
-spec: 
-  template: 
-    spect: 
-      containers: 
-        - $patch: delete 
+spec:
+  template:
+    spec:
+      containers:
+        - $patch: delete
           name: database
 ```
 
+### Overlays
 
-- overlays structure
-
-```
+```text
 k8s/
 ├── base/
 │   ├── kustomization.yaml
@@ -2780,7 +2704,9 @@ k8s/
         └── config-map.yaml
 ```
 
-```
+With subdirectories:
+
+```text
 k8s/
 ├── base/
 │   ├── kustomization.yaml
@@ -2811,9 +2737,11 @@ k8s/
             └── kustomization.yaml
 ```
 
-- components
+### Components
 
-```
+Reusable pieces of configuration that overlays can opt into:
+
+```text
 k8s/
 ├── base/
 │   ├── kustomization.yaml
@@ -2836,47 +2764,43 @@ k8s/
         └── kustomization.yaml
 ```
 
-
+<p align="right"><a href="#top">⬆ back to top</a></p>
 
 ---
 
+## 13. Troubleshooting
+
+### Cluster Components
+
+```bash
 k get nodes
-
-k get pods 
-
-k get pods -n kube-system 
+k get pods
+k get pods -n kube-system
 
 service kube-apiserver status
-
 service kube-controller-manager status
-
 service kube-scheduler status
-
 service kubelet status
-
 service kube-proxy status
 
-k logs kube-apiserver-master -n kube-system 
-
-sudo journalctl -u
-
----
-
-Note
-
-check env variables in a pod: 
+k logs kube-apiserver-master -n kube-system
+sudo journalctl -u <service-name>
 ```
+
+### Inspecting Multi-Container Pods
+
+```bash
+# Print one environment variable in a container
 kubectl exec mc-pod -n mc-namespace -c mc-pod-1 -- sh -c 'echo $NODE_NAME'
-```
 
-```
+# Print all environment variables in a container
 kubectl exec mc-pod -n mc-namespace -c mc-pod-1 -- env
-```
 
-```
+# Logs of one container
 kubectl logs mc-pod -n mc-namespace -c mc-pod-3
-```
 
-```
+# Read a file inside a container
 k exec mc-pod -n mc-namespace -c mc-pod-2 -- cat /var/log/shared/date.log
 ```
+
+<p align="right"><a href="#top">⬆ back to top</a></p>
